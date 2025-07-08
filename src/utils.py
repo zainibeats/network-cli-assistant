@@ -10,8 +10,6 @@ This module can be used for common tasks like:
 """
 
 import ipaddress
-import inspect
-from src import core_functions
 
 def validate_ip(ip_address: str) -> bool:
     """
