@@ -62,7 +62,14 @@ def generate_acl(src_ip: str, dst_ip: str, action: Literal["permit", "deny"]) ->
     acl_rule = f"access-list 101 {action} ip host {src_ip} host {dst_ip}"
     return {"acl_rule": acl_rule}
 
-# Future idea: What other functions could go here?
-# - ping(host: str) -> dict
-# - traceroute(host: str) -> dict
-# - check_dns(domain: str) -> dict
+def ping(host: str) -> dict:
+    print(f"Pinging host '{host}'...")
+    return {"stdout": "Ping result from host", "stderr": "", "exit_code": 0}
+
+def traceroute(host: str) -> dict:
+    print(f"Tracing route to host '{host}'...")
+    return {"stdout": "Traceroute result from host", "stderr": "", "exit_code": 0}
+
+def dns_lookup(host: str) -> dict:
+    print(f"Performing DNS lookup for host '{host}'...")
+    return {"stdout": "DNS lookup result from host", "stderr": "", "exit_code": 0}

@@ -1,12 +1,17 @@
 # src/utils.py
 
 """
-Utility functions for the Network CLI Assistant.
+Utility functions and helper classes.
 
-This module contains helper functions that are used across different
-parts of the application, such as input validation, data formatting,
-or colored terminal output.
+This module can be used for common tasks like:
+- Data validation
+- Text formatting
+- Reading configuration files
 """
+
+import ipaddress
+import inspect
+from src import core_functions
 
 def validate_ip(ip_address: str) -> bool:
     """
@@ -21,7 +26,11 @@ def validate_ip(ip_address: str) -> bool:
     # Hint: The 'ipaddress' module in the standard library is your friend here.
     # It can parse both IPv4 and IPv6 addresses with a single function call.
     # Remember to wrap it in a try...except block to handle invalid input gracefully.
-    return True # Placeholder
+    try:
+        ipaddress.ip_address(ip_address)
+        return True
+    except ValueError:
+        return False
 
 def format_output(data: dict) -> str:
     """
