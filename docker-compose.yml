@@ -1,0 +1,9 @@
+services:
+  app:
+    build: .
+    container_name: network-cli-assistant
+    network_mode: "host"
+    env_file:
+      - .env
+    stdin_open: true
+    tty: true
