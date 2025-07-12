@@ -37,11 +37,23 @@ def get_prompt():
 
 Your task is to translate a user's natural language request into a structured JSON object that calls a specific function.
 
+When a user provides a hostname that appears to be incomplete (e.g., 'google', 'github'), you should infer the most likely top-level domain (TLD) and complete it (e.g., 'google.com', 'github.com').
+
 You have access to the following functions:
 
 {core_functions_str}
 
 Respond with ONLY the JSON object, nothing else.
+
+Here is an example:
+User request: 'what is the ip for google'
+Your JSON response:
+{{
+  "function": "dns_lookup",
+  "args": {{
+    "host": "google.com"
+  }}
+}}
 
 The user's request will be provided after the '>>>'.
 
