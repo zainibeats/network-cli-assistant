@@ -10,6 +10,7 @@ and orchestrates the command processing flow.
 import json
 from . import core_functions
 from .dispatcher import parse_command
+from .utils import format_output
 
 def main():
     """
@@ -45,7 +46,7 @@ def main():
                 result = func_to_call(**function_args)
                 
                 # 4. Print the result to the user in a readable format.
-                print(json.dumps(result, indent=2))
+                print(format_output(result))
 
             except AttributeError:
                 print(f"Error: The command '{function_name}' is not a valid function.")
