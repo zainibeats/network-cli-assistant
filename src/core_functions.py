@@ -124,22 +124,19 @@ def run_nmap_scan(target: str, top_ports: int = 10) -> dict:
 
                 for port in ports.findall('port'):
                     state = port.find('state')
-                    if state is not None and state.get('state') == 'open':
+                    if state is not None and (state.get('state') == 'open' or state.get('state') == 'filtered'):
                         port_id = port.get('portid')
                         service = port.find('service')
                         service_name = service.get('name') if service is not None else 'unknown'
                         parsed_output.append({
                             'port': port_id,
-                            'state': 'open',
+                            'state': state.get('state'),
                             'service': service_name
                         })
 
         if not parsed_output:
             return {"success": True, "output": f"No open ports found among the top {top_ports} on {target}."}
 
-        if not parsed_output:
-            return {"success": True, "output": f"No open ports found among the top {top_ports} on {target}."}
-            
         return {"success": True, "output": parsed_output}
         
     except subprocess.CalledProcessError as e:
