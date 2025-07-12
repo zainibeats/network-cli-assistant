@@ -8,6 +8,8 @@ WORKDIR /app
 RUN apt-get update && apt-get install -y \
     nmap \
     net-tools \
+    iputils-ping \
+    traceroute \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy the requirements file into the container at /app
