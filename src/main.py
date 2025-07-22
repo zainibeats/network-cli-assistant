@@ -8,9 +8,9 @@ and orchestrates the command processing flow.
 """
 
 import json
-from . import core_functions
-from .dispatcher import parse_command
-from .utils import format_output
+import core_functions
+from dispatcher import parse_command
+from utils import format_output
 
 def main():
     """
