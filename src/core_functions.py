@@ -31,7 +31,7 @@ def run_command(host: str, cmd: str) -> dict:
         A dictionary containing the command's output, errors, and exit code.
     """
     # Validate host parameter
-    is_valid_host, error_msg, suggestion = validate_target(host)
+    is_valid_host, error_msg, _ = validate_target(host)
     if not is_valid_host:
         return {"success": False, "error": error_msg}
     
@@ -74,12 +74,12 @@ def generate_acl(src_ip: str, dst_ip: str, action: Literal["permit", "deny"]) ->
         A dictionary containing the generated ACL configuration line.
     """
     # Validate source IP address
-    is_valid_src, src_error, src_suggestion = validate_ip_with_details(src_ip)
+    is_valid_src, src_error, _ = validate_ip_with_details(src_ip)
     if not is_valid_src:
         return {"success": False, "error": src_error}
     
     # Validate destination IP address
-    is_valid_dst, dst_error, dst_suggestion = validate_ip_with_details(dst_ip)
+    is_valid_dst, dst_error, _ = validate_ip_with_details(dst_ip)
     if not is_valid_dst:
         return {"success": False, "error": dst_error}
     
@@ -102,7 +102,7 @@ def ping(host: str) -> dict:
         dict: Contains success status and ping output
     """
     # Validate target parameter
-    is_valid_target, error_msg, suggestion = validate_target(host)
+    is_valid_target, error_msg, _ = validate_target(host)
     if not is_valid_target:
         return {"success": False, "error": error_msg}
 
@@ -175,7 +175,7 @@ def traceroute(host: str) -> dict:
         dict: Contains success status and traceroute output
     """
     # Validate target parameter
-    is_valid_target, error_msg, suggestion = validate_target(host)
+    is_valid_target, error_msg, _ = validate_target(host)
     if not is_valid_target:
         return {"success": False, "error": error_msg}
 
@@ -248,7 +248,7 @@ def dns_lookup(host: str) -> dict:
         dict: Contains forward/reverse lookup results
     """
     # Validate target parameter
-    is_valid_target, error_msg, suggestion = validate_target(host)
+    is_valid_target, error_msg, _ = validate_target(host)
     if not is_valid_target:
         return {"success": False, "error": error_msg}
     
@@ -272,8 +272,7 @@ def dns_lookup(host: str) -> dict:
                 results["reverse_lookup"] = {
                     "success": True,
                     "ip_address": host,
-                    "hostname": hostname,
-                    "explanation": f"IP {host} resolves to hostname {hostname}"
+                    "hostname": hostname
                 }
                 
                 # Now do forward lookup of the resolved hostname
@@ -283,7 +282,6 @@ def dns_lookup(host: str) -> dict:
                         "success": True,
                         "hostname": hostname,
                         "ip_address": forward_ip,
-                        "explanation": f"Hostname {hostname} resolves to IP {forward_ip}",
                         "consistency_check": forward_ip == host
                     }
                     if forward_ip != host:
@@ -310,8 +308,7 @@ def dns_lookup(host: str) -> dict:
                 results["forward_lookup"] = {
                     "success": True,
                     "hostname": host,
-                    "ip_address": ip_address,
-                    "explanation": f"Hostname {host} resolves to IP {ip_address}"
+                    "ip_address": ip_address
                 }
                 
                 # Now do reverse lookup of the resolved IP
@@ -321,7 +318,6 @@ def dns_lookup(host: str) -> dict:
                         "success": True,
                         "ip_address": ip_address,
                         "hostname": reverse_hostname,
-                        "explanation": f"IP {ip_address} resolves to hostname {reverse_hostname}",
                         "consistency_check": reverse_hostname.lower() == host.lower()
                     }
                     if reverse_hostname.lower() != host.lower():
@@ -386,12 +382,12 @@ def run_nmap_scan(target: str, top_ports: int = 10) -> dict:
         dict: Contains scan results
     """
     # Validate target parameter
-    is_valid_target, error_msg, suggestion = validate_target(target)
+    is_valid_target, error_msg, _ = validate_target(target)
     if not is_valid_target:
         return {"success": False, "error": error_msg}
     
     # Validate top_ports parameter
-    is_valid_port, port_error, port_suggestion = validate_port(top_ports)
+    is_valid_port, port_error, _ = validate_port(top_ports)
     if not is_valid_port:
         return {"success": False, "error": port_error}
     

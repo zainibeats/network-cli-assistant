@@ -49,219 +49,150 @@ def validate_ip(ip_address: str) -> bool:
 
 def validate_ip_with_details(ip_address: str) -> Tuple[bool, Optional[str], Optional[str]]:
     """
-    Validates an IP address and provides detailed error information.
+    Validates an IP address and provides error information.
     
     Args:
         ip_address: The string to validate as an IP address
         
     Returns:
-        Tuple of (is_valid, error_message, suggestion)
+        Tuple of (is_valid, error_message, None)
     """
     if not ip_address or not isinstance(ip_address, str):
-        return False, "IP address cannot be empty", "Please provide a valid IP address like 192.168.1.1 or 2001:db8::1"
+        return False, "IP address cannot be empty", None
     
     ip_address = ip_address.strip()
     
     if not ip_address:
-        return False, "IP address cannot be empty", "Please provide a valid IP address like 192.168.1.1 or 2001:db8::1"
+        return False, "IP address cannot be empty", None
     
     try:
         parsed_ip = ipaddress.ip_address(ip_address)
-        
-        # Additional validation for special cases
-        if parsed_ip.is_loopback:
-            return True, None, "Note: This is a loopback address (localhost)"
-        elif parsed_ip.is_private:
-            return True, None, "Note: This is a private network address"
-        elif parsed_ip.is_multicast:
-            return True, None, "Note: This is a multicast address"
-        elif parsed_ip.is_reserved:
-            return True, None, "Note: This is a reserved address"
-        
         return True, None, None
         
     except ValueError as e:
-        error_msg = str(e).lower()
-        
-        # Provide specific suggestions based on common errors
-        if "does not appear to be an ipv4 or ipv6 address" in error_msg:
-            # Check for common mistakes
-            if '.' in ip_address and ip_address.count('.') == 3:
-                parts = ip_address.split('.')
-                invalid_parts = []
-                for p in parts:
-                    if not p.isdigit():
-                        invalid_parts.append(f"'{p}' (not a number)")
-                    elif int(p) > 255:
-                        invalid_parts.append(f"'{p}' (must be 0-255)")
-                if invalid_parts:
-                    return False, f"Invalid IPv4 address: {', '.join(invalid_parts)}", "Each part must be a number between 0-255"
-            elif ':' in ip_address:
-                return False, "Invalid IPv6 address format", "IPv6 addresses use hexadecimal digits (0-9, a-f) separated by colons"
-            else:
-                return False, "Invalid IP address format", "Use IPv4 format (e.g., 192.168.1.1) or IPv6 format (e.g., 2001:db8::1)"
-        
-        return False, f"Invalid IP address: {str(e)}", "Please check the format and try again"
+        return False, f"Invalid IP address: {str(e)}", None
 
 def validate_hostname(hostname: str) -> Tuple[bool, Optional[str], Optional[str]]:
     """
-    Validates a hostname and provides detailed error information and suggestions.
+    Validates a hostname and provides error information.
     
     Args:
         hostname: The string to validate as a hostname
         
     Returns:
-        Tuple of (is_valid, error_message, suggestion)
+        Tuple of (is_valid, error_message, None)
     """
     if not hostname or not isinstance(hostname, str):
-        return False, "Hostname cannot be empty", "Please provide a hostname like google.com or server.local"
+        return False, "Hostname cannot be empty", None
     
     hostname = hostname.strip().lower()
     
     if not hostname:
-        return False, "Hostname cannot be empty", "Please provide a hostname like google.com or server.local"
+        return False, "Hostname cannot be empty", None
     
     # Check length constraints (RFC 1035)
     if len(hostname) > 253:
-        return False, "Hostname too long (max 253 characters)", "Try using a shorter hostname"
+        return False, "Hostname too long (max 253 characters)", None
     
     # Check for invalid characters
     if not re.match(r'^[a-z0-9.-]+$', hostname):
         invalid_chars = set(hostname) - set('abcdefghijklmnopqrstuvwxyz0123456789.-')
-        return False, f"Invalid characters in hostname: {', '.join(sorted(invalid_chars))}", "Hostnames can only contain letters, numbers, dots, and hyphens"
+        return False, f"Invalid characters in hostname: {', '.join(sorted(invalid_chars))}", None
     
     # Check for consecutive dots or hyphens
     if '..' in hostname:
-        return False, "Consecutive dots not allowed in hostname", "Remove extra dots (e.g., 'example..com' → 'example.com')"
+        return False, "Consecutive dots not allowed in hostname", None
     
     if '--' in hostname:
-        return False, "Consecutive hyphens not allowed in hostname", "Remove extra hyphens"
+        return False, "Consecutive hyphens not allowed in hostname", None
     
     # Check if starts or ends with dot or hyphen
     if hostname.startswith('.') or hostname.endswith('.'):
-        return False, "Hostname cannot start or end with a dot", "Remove leading/trailing dots"
+        return False, "Hostname cannot start or end with a dot", None
     
     if hostname.startswith('-') or hostname.endswith('-'):
-        return False, "Hostname cannot start or end with a hyphen", "Remove leading/trailing hyphens"
+        return False, "Hostname cannot start or end with a hyphen", None
     
     # Split into labels and validate each
     labels = hostname.split('.')
     
     for label in labels:
         if not label:
-            return False, "Empty label in hostname", "Check for consecutive dots"
+            return False, "Empty label in hostname", None
         
         if len(label) > 63:
-            return False, f"Label '{label}' too long (max 63 characters)", "Shorten individual parts of the hostname"
+            return False, f"Label '{label}' too long (max 63 characters)", None
         
         if label.startswith('-') or label.endswith('-'):
-            return False, f"Label '{label}' cannot start or end with hyphen", "Remove hyphens from start/end of hostname parts"
-    
-    # Check if it looks like a valid domain
-    if len(labels) == 1:
-        # Single label - might be a local hostname
-        return True, None, "Note: This appears to be a local hostname (no domain)"
+            return False, f"Label '{label}' cannot start or end with hyphen", None
     
     # Check TLD (last label)
-    tld = labels[-1]
-    if tld.isdigit():
-        return False, "Top-level domain cannot be all numbers", "Use a proper domain extension like .com, .org, .net"
+    if len(labels) > 1:
+        tld = labels[-1]
+        if tld.isdigit():
+            return False, "Top-level domain cannot be all numbers", None
+        
+        if len(tld) < 2:
+            return False, "Top-level domain too short", None
     
-    if len(tld) < 2:
-        return False, "Top-level domain too short", "Use a proper domain extension like .com, .org, .net"
-    
-    # Common typo suggestions
-    suggestions = []
-    if hostname.endswith('.co'):
-        suggestions.append("Did you mean .com?")
-    elif hostname.endswith('.cm'):
-        suggestions.append("Did you mean .com?")
-    elif hostname.endswith('.og'):
-        suggestions.append("Did you mean .org?")
-    elif hostname.endswith('.nte'):
-        suggestions.append("Did you mean .net?")
-    
-    suggestion = suggestions[0] if suggestions else None
-    
-    return True, None, suggestion
+    return True, None, None
 
 def validate_target(target: str) -> Tuple[bool, Optional[str], Optional[str]]:
     """
-    Validates a target (IP address or hostname) and provides detailed error information.
+    Validates a target (IP address or hostname).
     
     Args:
         target: The target to validate (IP address or hostname)
         
     Returns:
-        Tuple of (is_valid, error_message, suggestion)
+        Tuple of (is_valid, error_message, None)
     """
     if not target or not isinstance(target, str):
-        return False, "Target cannot be empty", "Please provide an IP address or hostname"
+        return False, "Target cannot be empty", None
     
     target = target.strip()
     
     if not target:
-        return False, "Target cannot be empty", "Please provide an IP address or hostname"
+        return False, "Target cannot be empty", None
     
     # First try IP validation
-    is_valid_ip, ip_error, ip_suggestion = validate_ip_with_details(target)
+    is_valid_ip, ip_error, _ = validate_ip_with_details(target)
     if is_valid_ip:
-        return True, None, ip_suggestion
+        return True, None, None
     
     # If not a valid IP, try hostname validation
-    is_valid_hostname, hostname_error, hostname_suggestion = validate_hostname(target)
+    is_valid_hostname, hostname_error, _ = validate_hostname(target)
     if is_valid_hostname:
-        return True, None, hostname_suggestion
+        return True, None, None
     
     # Neither IP nor hostname is valid
-    return False, f"Invalid target: {ip_error or hostname_error}", "Please provide a valid IP address (e.g., 192.168.1.1) or hostname (e.g., google.com)"
+    return False, f"Invalid target: {ip_error or hostname_error}", None
 
 def validate_port(port: Union[str, int]) -> Tuple[bool, Optional[str], Optional[str]]:
     """
-    Validates a port number and provides detailed error information.
+    Validates a port number.
     
     Args:
         port: The port number to validate (string or integer)
         
     Returns:
-        Tuple of (is_valid, error_message, suggestion)
+        Tuple of (is_valid, error_message, None)
     """
     if port is None:
-        return False, "Port cannot be empty", "Please provide a port number between 1 and 65535"
+        return False, "Port cannot be empty", None
     
     try:
         port_num = int(port)
     except (ValueError, TypeError):
-        return False, f"Invalid port format: '{port}'", "Port must be a number between 1 and 65535"
+        return False, f"Invalid port format: '{port}'", None
     
     if port_num < 1:
-        return False, f"Port number too low: {port_num}", "Port numbers must be between 1 and 65535"
+        return False, f"Port number too low: {port_num}", None
     
     if port_num > 65535:
-        return False, f"Port number too high: {port_num}", "Port numbers must be between 1 and 65535"
+        return False, f"Port number too high: {port_num}", None
     
-    # Provide context for common ports
-    suggestions = []
-    if port_num < 1024:
-        suggestions.append("Note: This is a privileged port (requires root access)")
-    
-    common_ports = {
-        22: "SSH (Secure Shell)",
-        23: "Telnet (insecure - avoid)",
-        25: "SMTP (email sending)",
-        53: "DNS (domain name resolution)",
-        80: "HTTP (web server)",
-        443: "HTTPS (secure web server)",
-        993: "IMAPS (secure email)",
-        3389: "RDP (Windows remote desktop)"
-    }
-    
-    if port_num in common_ports:
-        suggestions.append(f"Common service: {common_ports[port_num]}")
-    
-    suggestion = "; ".join(suggestions) if suggestions else None
-    
-    return True, None, suggestion
+    return True, None, None
 
 def create_validation_error(field_name: str, value: str, error_msg: str, suggestion: str = None) -> dict:
     """
@@ -271,7 +202,7 @@ def create_validation_error(field_name: str, value: str, error_msg: str, suggest
         field_name: Name of the field that failed validation
         value: The invalid value
         error_msg: The error message
-        suggestion: Optional suggestion for fixing the error
+        suggestion: Unused parameter (kept for compatibility)
         
     Returns:
         Standardized error dictionary
@@ -385,32 +316,7 @@ def handle_command_not_found_error(command: str, alternatives: List[str] = None)
         "alternatives": alternatives or []
     }
 
-def _get_installation_hints(command: str) -> List[str]:
-    """Get installation hints for common network commands."""
-    installation_hints = {
-        'ping': [
-            "Usually pre-installed on most systems",
-            "Part of iputils package on Linux",
-            "Available by default on Windows and macOS"
-        ],
-        'traceroute': [
-            "Install with: apt-get install traceroute (Ubuntu/Debian)",
-            "Install with: yum install traceroute (CentOS/RHEL)",
-            "Use 'tracert' on Windows instead"
-        ],
-        'nmap': [
-            "Install with: apt-get install nmap (Ubuntu/Debian)",
-            "Install with: yum install nmap (CentOS/RHEL)",
-            "Download from: https://nmap.org/download.html"
-        ],
-        'netstat': [
-            "Usually part of net-tools package",
-            "Install with: apt-get install net-tools (Ubuntu/Debian)",
-            "Consider using 'ss' as a modern alternative"
-        ]
-    }
-    
-    return installation_hints.get(command, [f"Search for '{command}' in your system's package manager"])
+
 
 def validate_network_operation_input(operation: str, **kwargs) -> Tuple[bool, Optional[dict]]:
     """
@@ -427,47 +333,47 @@ def validate_network_operation_input(operation: str, **kwargs) -> Tuple[bool, Op
     
     # Common parameter validations
     if 'host' in kwargs:
-        is_valid, error_msg, suggestion = validate_target(kwargs['host'])
+        is_valid, error_msg, _ = validate_target(kwargs['host'])
         if not is_valid:
-            validation_errors.append(create_validation_error("target host", kwargs['host'], error_msg, suggestion))
+            validation_errors.append(create_validation_error("target host", kwargs['host'], error_msg))
     
     if 'target' in kwargs:
-        is_valid, error_msg, suggestion = validate_target(kwargs['target'])
+        is_valid, error_msg, _ = validate_target(kwargs['target'])
         if not is_valid:
-            validation_errors.append(create_validation_error("target", kwargs['target'], error_msg, suggestion))
+            validation_errors.append(create_validation_error("target", kwargs['target'], error_msg))
     
     if 'src_ip' in kwargs:
-        is_valid, error_msg, suggestion = validate_ip_with_details(kwargs['src_ip'])
+        is_valid, error_msg, _ = validate_ip_with_details(kwargs['src_ip'])
         if not is_valid:
-            validation_errors.append(create_validation_error("source IP address", kwargs['src_ip'], error_msg, suggestion))
+            validation_errors.append(create_validation_error("source IP address", kwargs['src_ip'], error_msg))
     
     if 'dst_ip' in kwargs:
-        is_valid, error_msg, suggestion = validate_ip_with_details(kwargs['dst_ip'])
+        is_valid, error_msg, _ = validate_ip_with_details(kwargs['dst_ip'])
         if not is_valid:
-            validation_errors.append(create_validation_error("destination IP address", kwargs['dst_ip'], error_msg, suggestion))
+            validation_errors.append(create_validation_error("destination IP address", kwargs['dst_ip'], error_msg))
     
     if 'port' in kwargs:
-        is_valid, error_msg, suggestion = validate_port(kwargs['port'])
+        is_valid, error_msg, _ = validate_port(kwargs['port'])
         if not is_valid:
-            validation_errors.append(create_validation_error("port", kwargs['port'], error_msg, suggestion))
+            validation_errors.append(create_validation_error("port", kwargs['port'], error_msg))
     
     if 'top_ports' in kwargs:
-        is_valid, error_msg, suggestion = validate_port(kwargs['top_ports'])
+        is_valid, error_msg, _ = validate_port(kwargs['top_ports'])
         if not is_valid:
-            validation_errors.append(create_validation_error("port count", kwargs['top_ports'], error_msg, suggestion))
+            validation_errors.append(create_validation_error("port count", kwargs['top_ports'], error_msg))
         elif int(kwargs['top_ports']) > 1000:
-            validation_errors.append(create_validation_error("port count", kwargs['top_ports'], "Port count too high (max 1000)", "Use a smaller number to avoid excessive scan time"))
+            validation_errors.append(create_validation_error("port count", kwargs['top_ports'], "Port count too high (max 1000)"))
     
     # Operation-specific validations
     if operation == 'generate_acl':
         if 'action' in kwargs and kwargs['action'] not in ['permit', 'deny']:
-            validation_errors.append(create_validation_error("action", kwargs['action'], "Action must be either 'permit' or 'deny'", "Use 'permit' to allow traffic or 'deny' to block traffic"))
+            validation_errors.append(create_validation_error("action", kwargs['action'], "Action must be either 'permit' or 'deny'"))
     
     if operation == 'run_command':
         if 'cmd' in kwargs:
             cmd = kwargs['cmd']
             if not cmd or not isinstance(cmd, str) or not cmd.strip():
-                validation_errors.append(create_validation_error("command", str(cmd), "Command cannot be empty", "Please provide a valid shell command"))
+                validation_errors.append(create_validation_error("command", str(cmd), "Command cannot be empty"))
             else:
                 # Basic command sanitization
                 dangerous_patterns = [';', '&&', '||', '|', '>', '>>', '<', '`', '$()']
@@ -477,8 +383,7 @@ def validate_network_operation_input(operation: str, **kwargs) -> Tuple[bool, Op
                         "error": "Command contains potentially dangerous characters",
                         "field": "command",
                         "invalid_value": cmd,
-                        "security_note": "For security reasons, commands with shell operators are not allowed",
-                        "suggestion": "Use simple commands without pipes, redirects, or command chaining"
+                        "security_note": "For security reasons, commands with shell operators are not allowed"
                     })
     
     if validation_errors:

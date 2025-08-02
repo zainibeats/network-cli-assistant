@@ -37,10 +37,6 @@ def main():
             if "error" in command:
                 error_msg = command.get("message", "Could not understand command")
                 print(f"Error: {error_msg}")
-                if "suggestions" in command:
-                    print("Suggestions:")
-                    for suggestion in command["suggestions"]:
-                        print(f"  - {suggestion}")
                 continue
 
             if not command or "function" not in command:
