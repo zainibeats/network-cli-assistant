@@ -10,6 +10,7 @@ input and mapping it to a structured function call.
 import os
 import json
 import re
+import logging
 import google.generativeai as genai
 from dotenv import load_dotenv
 import inspect
@@ -73,7 +74,10 @@ def parse_command(user_input: str) -> dict:
         A dictionary representing the function to call and its arguments.
         Returns error dict with suggestions if parsing fails.
     """
+    logger = logging.getLogger("network_cli.dispatcher")
+    
     if not user_input or not user_input.strip():
+        logger.warning("Empty input received")
         return {
             "error": "empty_input",
             "message": "Please provide a command"
@@ -82,11 +86,17 @@ def parse_command(user_input: str) -> dict:
 
     
     try:
+        logger.debug(f"Configuring Gemini AI for command parsing")
         genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
         model = genai.GenerativeModel('gemini-1.5-flash')
         
         prompt = get_enhanced_prompt()
         full_prompt = f"{prompt}{user_input}"
+        
+        logger.debug(f"Sending request to Gemini AI", extra={
+            "input_length": len(user_input),
+            "prompt_length": len(full_prompt)
+        })
         
         response = model.generate_content(full_prompt)
         
@@ -103,9 +113,15 @@ def parse_command(user_input: str) -> dict:
         # Parse the JSON response
         parsed_response = json.loads(text_response)
         
+        logger.debug(f"AI response parsed successfully", extra={
+            "function": parsed_response.get("function"),
+            "args_count": len(parsed_response.get("args", {}))
+        })
+        
         # Validate the response structure
         if "error" in parsed_response:
             if parsed_response["error"] == "ambiguous":
+                logger.warning("AI reported ambiguous command")
                 return {
                     "error": "ambiguous",
                     "message": "Command is ambiguous"
@@ -113,6 +129,7 @@ def parse_command(user_input: str) -> dict:
         
         # Validate that we have a function and args
         if "function" not in parsed_response:
+            logger.error("AI response missing 'function' field")
             raise ValueError("Response missing 'function' field")
         
         if "args" not in parsed_response:
@@ -120,16 +137,20 @@ def parse_command(user_input: str) -> dict:
         
         # Validate function exists
         if not hasattr(core_functions, parsed_response["function"]):
+            logger.error(f"Unknown function requested: {parsed_response['function']}")
             raise ValueError(f"Unknown function: {parsed_response['function']}")
         
+        logger.info(f"Command parsed successfully: {parsed_response['function']}")
         return parsed_response
         
     except json.JSONDecodeError as e:
+        logger.error(f"Failed to parse AI response as JSON: {e}")
         return {
             "error": "parse_error",
             "message": f"Failed to parse AI response as JSON: {e}"
         }
     except Exception as e:
+        logger.error(f"AI processing failed: {e}", exc_info=True)
         return {
             "error": "ai_error", 
             "message": f"AI processing failed: {e}"

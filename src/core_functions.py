@@ -12,13 +12,16 @@ import xml.etree.ElementTree as ET
 import subprocess
 import socket
 import errno
+import logging
 from .utils import (
     validate_ip, validate_ip_with_details, validate_hostname, validate_target, validate_port,
     create_validation_error, handle_network_timeout, handle_dns_resolution_error,
     handle_connection_refused_error, handle_permission_denied_error, handle_command_not_found_error,
     validate_network_operation_input, retry_network_operation
 )
+from .logging_config import log_operation, get_logger
 
+@log_operation("ssh_command")
 def run_command(host: str, cmd: str) -> dict:
     """
     Connects to a remote host via SSH and executes a shell command.
@@ -53,14 +56,28 @@ def run_command(host: str, cmd: str) -> dict:
         }
     
     # This is a placeholder for a real SSH implementation using a library like paramiko
+    logger = logging.getLogger("network_cli.ssh")
+    logger.info(f"Executing SSH command on {host}", extra={
+        "command": cmd,
+        "host": host,
+        "placeholder": True
+    })
+    
     print(f"(Placeholder) Executing '{cmd}' on host '{host}' via SSH...")
-    return {
+    
+    result = {
         "success": True,
         "stdout": f"Placeholder output for '{cmd}' on {host}",
         "stderr": "",
         "exit_code": 0
     }
+    
+    # Log the command execution result
+    get_logger().log_command_execution(cmd, host, result)
+    
+    return result
 
+@log_operation("acl_generation")
 def generate_acl(src_ip: str, dst_ip: str, action: Literal["permit", "deny"]) -> dict:
     """
     Generates a Cisco-style Access Control List (ACL) rule.
@@ -87,10 +104,23 @@ def generate_acl(src_ip: str, dst_ip: str, action: Literal["permit", "deny"]) ->
     if not action or action not in ["permit", "deny"]:
         return {"success": False, "error": "Action must be either 'permit' or 'deny'"}
 
+    logger = logging.getLogger("network_cli.acl")
+    logger.info(f"Generating ACL rule", extra={
+        "src_ip": src_ip,
+        "dst_ip": dst_ip,
+        "action": action
+    })
+    
     print(f"Generating ACL to {action} traffic from {src_ip} to {dst_ip}...")
     acl_rule = f"access-list 101 {action} ip host {src_ip} host {dst_ip}"
+    
+    logger.info(f"ACL rule generated successfully", extra={
+        "acl_rule": acl_rule
+    })
+    
     return {"success": True, "output": acl_rule}
 
+@log_operation("ping")
 def ping(host: str) -> dict:
     """
     Pings a host to test network connectivity and measure response times.
@@ -106,10 +136,19 @@ def ping(host: str) -> dict:
     if not is_valid_target:
         return {"success": False, "error": error_msg}
 
+    logger = logging.getLogger("network_cli.ping")
+    logger.info(f"Starting ping operation to {host}")
+    
     print(f"Pinging host '{host}'...")
     command = ['ping', '-c', '4', host]
     try:
         result = subprocess.run(command, capture_output=True, text=True, check=True, timeout=30)
+        
+        logger.info(f"Ping completed successfully", extra={
+            "packets_sent": 4,
+            "exit_code": result.returncode
+        })
+        
         return {
             "success": True,
             "output": result.stdout,
@@ -119,6 +158,7 @@ def ping(host: str) -> dict:
         }
         
     except subprocess.TimeoutExpired:
+        logger.error(f"Ping operation timed out after 30 seconds")
         return {
             "success": False,
             "error": f"Ping operation timed out after 30 seconds",
@@ -128,42 +168,49 @@ def ping(host: str) -> dict:
         stderr_output = e.stderr or ""
         
         if "Name or service not known" in stderr_output or "cannot resolve" in stderr_output.lower():
+            logger.error(f"DNS resolution failed for {host}")
             return {
                 "success": False,
                 "error": f"DNS resolution failed for '{host}'",
                 "error_type": "dns_resolution"
             }
         elif "Network is unreachable" in stderr_output:
+            logger.error(f"Network unreachable when trying to ping {host}")
             return {
                 "success": False,
                 "error": f"Network unreachable when trying to ping {host}",
                 "error_type": "network_unreachable"
             }
         elif "Operation not permitted" in stderr_output:
+            logger.error(f"Permission denied for ping operation")
             return {
                 "success": False,
                 "error": "Permission denied for ping operation",
                 "error_type": "permission_denied"
             }
         else:
+            logger.error(f"Ping failed: {stderr_output}")
             return {
                 "success": False,
                 "error": stderr_output or f"Failed to ping {host}",
                 "error_type": "ping_failed"
             }
     except FileNotFoundError:
+        logger.error("Ping command not found on system")
         return {
             "success": False,
             "error": "Ping command not found",
             "error_type": "command_not_found"
         }
     except Exception as e:
+        logger.error(f"Unexpected error during ping: {str(e)}", exc_info=True)
         return {
             "success": False,
             "error": f"Unexpected error during ping: {str(e)}",
             "error_type": "unexpected_error"
         }
 
+@log_operation("traceroute")
 def traceroute(host: str) -> dict:
     """
     Traces the network path to a destination, showing each router (hop) along the way.
@@ -179,10 +226,18 @@ def traceroute(host: str) -> dict:
     if not is_valid_target:
         return {"success": False, "error": error_msg}
 
+    logger = logging.getLogger("network_cli.traceroute")
+    logger.info(f"Starting traceroute to {host}")
+    
     print(f"Tracing network path to '{host}'...")
     command = ['traceroute', host]
     try:
         result = subprocess.run(command, capture_output=True, text=True, check=True, timeout=120)
+        
+        logger.info(f"Traceroute completed successfully", extra={
+            "exit_code": result.returncode
+        })
+        
         return {
             "success": True,
             "output": result.stdout,
@@ -192,6 +247,7 @@ def traceroute(host: str) -> dict:
         }
         
     except subprocess.TimeoutExpired:
+        logger.error(f"Traceroute operation timed out after 120 seconds")
         return {
             "success": False,
             "error": f"Traceroute operation timed out after 120 seconds",
@@ -201,42 +257,49 @@ def traceroute(host: str) -> dict:
         stderr_output = e.stderr or ""
         
         if "Name or service not known" in stderr_output or "cannot resolve" in stderr_output.lower():
+            logger.error(f"DNS resolution failed for {host}")
             return {
                 "success": False,
                 "error": f"DNS resolution failed for '{host}'",
                 "error_type": "dns_resolution"
             }
         elif "Network is unreachable" in stderr_output:
+            logger.error(f"Network unreachable when trying to traceroute to {host}")
             return {
                 "success": False,
                 "error": f"Network unreachable when trying to traceroute to {host}",
                 "error_type": "network_unreachable"
             }
         elif "Operation not permitted" in stderr_output:
+            logger.error(f"Permission denied for traceroute operation")
             return {
                 "success": False,
                 "error": "Permission denied for traceroute operation",
                 "error_type": "permission_denied"
             }
         else:
+            logger.error(f"Traceroute failed: {stderr_output}")
             return {
                 "success": False,
                 "error": stderr_output or f"Failed to trace route to {host}",
                 "error_type": "traceroute_failed"
             }
     except FileNotFoundError:
+        logger.error("Traceroute command not found on system")
         return {
             "success": False,
             "error": "Traceroute command not found",
             "error_type": "command_not_found"
         }
     except Exception as e:
+        logger.error(f"Unexpected error during traceroute: {str(e)}", exc_info=True)
         return {
             "success": False,
             "error": f"Unexpected error during traceroute: {str(e)}",
             "error_type": "unexpected_error"
         }
 
+@log_operation("dns_lookup")
 def dns_lookup(host: str) -> dict:
     """
     Performs comprehensive DNS lookups including forward and reverse resolution.
@@ -252,6 +315,9 @@ def dns_lookup(host: str) -> dict:
     if not is_valid_target:
         return {"success": False, "error": error_msg}
     
+    logger = logging.getLogger("network_cli.dns")
+    logger.info(f"Starting DNS lookup for {host}")
+    
     print(f"Performing DNS lookup for '{host}'...")
     
     results = {
@@ -262,6 +328,7 @@ def dns_lookup(host: str) -> dict:
     
     # Determine if input is an IP address or hostname
     is_ip_address = validate_ip(host)
+    logger.debug(f"Input type detected: {'IP address' if is_ip_address else 'hostname'}")
     
     try:
         if is_ip_address:
@@ -269,6 +336,7 @@ def dns_lookup(host: str) -> dict:
             print(f"Input detected as IP address, performing reverse lookup...")
             try:
                 hostname = socket.gethostbyaddr(host)[0]
+                logger.info(f"Reverse lookup successful: {host} -> {hostname}")
                 results["reverse_lookup"] = {
                     "success": True,
                     "ip_address": host,
@@ -278,6 +346,7 @@ def dns_lookup(host: str) -> dict:
                 # Now do forward lookup of the resolved hostname
                 try:
                     forward_ip = socket.gethostbyname(hostname)
+                    logger.info(f"Forward lookup successful: {hostname} -> {forward_ip}")
                     results["forward_lookup"] = {
                         "success": True,
                         "hostname": hostname,
@@ -285,14 +354,17 @@ def dns_lookup(host: str) -> dict:
                         "consistency_check": forward_ip == host
                     }
                     if forward_ip != host:
+                        logger.warning(f"DNS consistency issue: forward lookup returned {forward_ip}, original was {host}")
                         results["forward_lookup"]["warning"] = f"Forward lookup returned different IP ({forward_ip}) than original ({host})"
                 except socket.gaierror:
+                    logger.warning(f"Forward lookup failed for resolved hostname {hostname}")
                     results["forward_lookup"] = {
                         "success": False,
                         "error": f"Could not perform forward lookup for resolved hostname {hostname}"
                     }
                     
             except socket.gaierror as e:
+                logger.error(f"Reverse lookup failed for {host}: {e}")
                 results["reverse_lookup"] = {
                     "success": False,
                     "ip_address": host,
@@ -305,6 +377,7 @@ def dns_lookup(host: str) -> dict:
             print(f"Input detected as hostname, performing forward lookup...")
             try:
                 ip_address = socket.gethostbyname(host)
+                logger.info(f"Forward lookup successful: {host} -> {ip_address}")
                 results["forward_lookup"] = {
                     "success": True,
                     "hostname": host,
@@ -314,6 +387,7 @@ def dns_lookup(host: str) -> dict:
                 # Now do reverse lookup of the resolved IP
                 try:
                     reverse_hostname = socket.gethostbyaddr(ip_address)[0]
+                    logger.info(f"Reverse lookup successful: {ip_address} -> {reverse_hostname}")
                     results["reverse_lookup"] = {
                         "success": True,
                         "ip_address": ip_address,
@@ -321,8 +395,10 @@ def dns_lookup(host: str) -> dict:
                         "consistency_check": reverse_hostname.lower() == host.lower()
                     }
                     if reverse_hostname.lower() != host.lower():
+                        logger.warning(f"DNS consistency issue: reverse lookup returned {reverse_hostname}, original was {host}")
                         results["reverse_lookup"]["note"] = f"Reverse lookup returned different hostname ({reverse_hostname}) than original ({host})"
                 except socket.gaierror:
+                    logger.warning(f"Reverse lookup failed for {ip_address}")
                     results["reverse_lookup"] = {
                         "success": False,
                         "ip_address": ip_address,
@@ -330,6 +406,7 @@ def dns_lookup(host: str) -> dict:
                     }
                     
             except socket.gaierror as e:
+                logger.error(f"Forward lookup failed for {host}: {e}")
                 results["forward_lookup"] = {
                     "success": False,
                     "hostname": host,
@@ -338,6 +415,7 @@ def dns_lookup(host: str) -> dict:
                 results["success"] = False
     
     except Exception as e:
+        logger.error(f"DNS lookup failed: {str(e)}", exc_info=True)
         return {
             "success": False,
             "error": f"DNS lookup failed: {str(e)}",
@@ -370,6 +448,7 @@ def dns_lookup(host: str) -> dict:
     
     return results
 
+@log_operation("nmap_scan")
 def run_nmap_scan(target: str, top_ports: int = 10) -> dict:
     """
     Performs a network port scan using Nmap to discover open services.
@@ -394,6 +473,12 @@ def run_nmap_scan(target: str, top_ports: int = 10) -> dict:
     # Additional validation for port count range
     if top_ports > 1000:
         return {"success": False, "error": "Port count too high (max 1000)"}
+    
+    logger = logging.getLogger("network_cli.nmap")
+    logger.info(f"Starting nmap scan of {target}", extra={
+        "target": target,
+        "top_ports": top_ports
+    })
     
     print(f"Scanning {target} for open ports (top {top_ports} most common ports)...")
     
@@ -473,6 +558,7 @@ def run_nmap_scan(target: str, top_ports: int = 10) -> dict:
         }
 
         if not parsed_output:
+            logger.info(f"No open ports found on {target}")
             results["output"] = f"No open or filtered ports found among the top {top_ports} ports on {target}."
             results["interpretation"] = {
                 "overall_risk": "minimal",
@@ -480,37 +566,50 @@ def run_nmap_scan(target: str, top_ports: int = 10) -> dict:
                 "recommendations": ["Verify target is reachable", "System may have strong firewall protection"]
             }
         else:
+            open_ports = [p for p in parsed_output if p.get("state") == "open"]
+            logger.info(f"Nmap scan completed: found {len(open_ports)} open ports", extra={
+                "open_ports": [p.get("port") for p in open_ports],
+                "total_ports_scanned": top_ports
+            })
             results["output"] = parsed_output
             # Add comprehensive result interpretation
             results["interpretation"] = _interpret_nmap_results(results)
 
+        # Log the scan result
+        get_logger().log_network_scan(target, "nmap", results)
+        
         return results
         
     except subprocess.CalledProcessError as e:
         # Nmap exits with an error if the host is down
         if "Host seems down" in (e.stderr or ""):
+            logger.warning(f"Host {target} appears to be down")
             return {
                 "success": True, 
                 "output": f"Host {target} appears to be down or not responding to ping."
             }
+        logger.error(f"Nmap scan failed: {e.stderr or str(e)}")
         return {
             "success": False, 
             "error": e.stderr or str(e),
             "error_type": "nmap_failed"
         }
     except ET.ParseError:
+        logger.error("Failed to parse nmap XML output")
         return {
             "success": False, 
             "error": "Failed to parse nmap XML output.",
             "error_type": "parse_error"
         }
     except FileNotFoundError:
+        logger.error("Nmap command not found on system")
         return {
             "success": False,
             "error": "Nmap command not found",
             "error_type": "command_not_found"
         }
     except Exception as ex:
+        logger.error(f"Unexpected error during nmap scan: {str(ex)}", exc_info=True)
         return {
             "success": False, 
             "error": str(ex),
@@ -696,6 +795,7 @@ def _interpret_nmap_results(scan_results: dict) -> dict:
         "target_info": host_info
     }
 
+@log_operation("netstat")
 def run_netstat() -> dict:
     """
     Runs 'netstat -tulpn' to list listening TCP and UDP ports.
@@ -703,9 +803,17 @@ def run_netstat() -> dict:
     Returns:
         dict: A dictionary with the command's output or an error message.
     """
+    logger = logging.getLogger("network_cli.netstat")
+    logger.info("Starting netstat operation")
+    
     try:
         cmd = ["netstat", "-tulpn"]
         result = subprocess.run(cmd, capture_output=True, text=True, check=True, timeout=30)
+        
+        logger.info("Netstat completed successfully", extra={
+            "exit_code": result.returncode
+        })
+        
         return {
             "success": True, 
             "output": result.stdout,
@@ -714,24 +822,28 @@ def run_netstat() -> dict:
             "exit_code": result.returncode
         }
     except subprocess.TimeoutExpired:
+        logger.error("Netstat operation timed out after 30 seconds")
         return {
             "success": False,
             "error": "Netstat operation timed out after 30 seconds",
             "error_type": "timeout"
         }
     except subprocess.CalledProcessError as e:
+        logger.error(f"Netstat failed: {e.stderr or str(e)}")
         return {
             "success": False, 
             "error": e.stderr or str(e),
             "error_type": "netstat_failed"
         }
     except FileNotFoundError:
+        logger.error("Netstat command not found on system")
         return {
             "success": False,
             "error": "Netstat command not found",
             "error_type": "command_not_found"
         }
     except Exception as ex:
+        logger.error(f"Unexpected error during netstat: {str(ex)}", exc_info=True)
         return {
             "success": False, 
             "error": str(ex),
