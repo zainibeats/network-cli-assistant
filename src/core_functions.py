@@ -478,8 +478,15 @@ def run_nmap_scan(target: str, top_ports: int = 10) -> dict:
 
         if not parsed_output:
             results["output"] = f"No open or filtered ports found among the top {top_ports} ports on {target}."
+            results["interpretation"] = {
+                "overall_risk": "minimal",
+                "summary": f"No open ports detected on {target} - system appears well secured or may be down",
+                "recommendations": ["Verify target is reachable", "System may have strong firewall protection"]
+            }
         else:
             results["output"] = parsed_output
+            # Add comprehensive result interpretation
+            results["interpretation"] = _interpret_nmap_results(results)
 
         return results
         
@@ -519,14 +526,22 @@ def _assess_port_security_risk(port: str, state: str, service: str) -> str:
     if state != 'open':
         return 'low'
     
-    high_risk_ports = ['23', '21', '135', '139', '445', '1433', '3389', '5432', '3306']
-    medium_risk_ports = ['22', '25', '53', '110', '143', '993', '995']
+    # Critical risk ports - immediate security concern
+    critical_risk_ports = ['23', '135', '139', '445', '1433', '3306', '5432']
+    # High risk ports - require careful configuration
+    high_risk_ports = ['21', '25', '53', '3389', '5900', '5901', '6379', '27017']
+    # Medium risk ports - common services that need monitoring
+    medium_risk_ports = ['22', '80', '110', '143', '993', '995', '8080', '8443']
     
-    if port in high_risk_ports:
+    if port in critical_risk_ports:
+        return 'critical'
+    elif port in high_risk_ports:
         return 'high'
     elif port in medium_risk_ports:
         return 'medium'
-    elif service in ['telnet', 'ftp', 'rlogin', 'rsh']:
+    elif service in ['telnet', 'ftp', 'rlogin', 'rsh', 'netbios-ssn', 'microsoft-ds']:
+        return 'critical'
+    elif service in ['vnc', 'redis', 'mongodb', 'mysql', 'postgresql']:
         return 'high'
     else:
         return 'low'
@@ -534,19 +549,156 @@ def _assess_port_security_risk(port: str, state: str, service: str) -> str:
 def _get_port_security_recommendations(port: str, service: str) -> list:
     """Get security recommendations for specific ports/services."""
     recommendations = {
-        '22': ['Use key-based authentication', 'Disable root login', 'Change default port', 'Use fail2ban'],
-        '23': ['Replace with SSH immediately', 'Telnet sends passwords in plain text'],
-        '21': ['Use SFTP/SCP instead', 'If needed, use FTPS with encryption'],
-        '25': ['Ensure not an open relay', 'Use authentication for sending'],
-        '53': ['Restrict to authorized networks only', 'Keep DNS software updated'],
-        '80': ['Redirect to HTTPS', 'Keep web server updated'],
-        '443': ['Use strong SSL/TLS configuration', 'Keep certificates updated'],
-        '3389': ['Use Network Level Authentication', 'Restrict access by IP', 'Use strong passwords'],
-        '3306': ['Never expose to internet', 'Use strong passwords', 'Keep MySQL updated'],
-        '5432': ['Never expose to internet', 'Use strong passwords', 'Keep PostgreSQL updated']
+        '21': ['Replace with SFTP/SCP', 'If FTP needed, use FTPS with encryption', 'Disable anonymous access'],
+        '22': ['Use key-based authentication', 'Disable root login', 'Change default port', 'Use fail2ban', 'Limit user access'],
+        '23': ['CRITICAL: Replace with SSH immediately', 'Telnet transmits passwords in plain text', 'Disable telnet service'],
+        '25': ['Ensure not an open relay', 'Use SMTP authentication', 'Enable TLS encryption', 'Monitor for spam'],
+        '53': ['Restrict to authorized networks only', 'Disable recursion for public servers', 'Keep DNS software updated', 'Monitor for DNS amplification attacks'],
+        '80': ['Redirect all traffic to HTTPS', 'Keep web server updated', 'Use security headers', 'Regular security scans'],
+        '110': ['Use POP3S (port 995) instead', 'Disable plain text authentication', 'Consider IMAP as alternative'],
+        '135': ['CRITICAL: Block at firewall', 'Windows RPC endpoint mapper', 'High risk for exploitation', 'Disable if not needed'],
+        '139': ['CRITICAL: Block at firewall', 'NetBIOS session service', 'Legacy protocol with security issues', 'Use SMB over port 445 instead'],
+        '143': ['Use IMAPS (port 993) instead', 'Disable plain text authentication', 'Enable TLS encryption'],
+        '443': ['Use strong SSL/TLS configuration', 'Keep certificates updated', 'Disable weak ciphers', 'Enable HSTS'],
+        '445': ['CRITICAL: Restrict access', 'SMB file sharing', 'Vulnerable to ransomware', 'Use VPN for remote access'],
+        '993': ['Verify certificate validity', 'Use strong authentication', 'Monitor for brute force attacks'],
+        '995': ['Verify certificate validity', 'Use strong authentication', 'Monitor for brute force attacks'],
+        '1433': ['CRITICAL: Never expose to internet', 'SQL Server default port', 'Use strong passwords', 'Enable encryption', 'Change default port'],
+        '3306': ['CRITICAL: Never expose to internet', 'MySQL default port', 'Use strong passwords', 'Enable SSL', 'Change default port'],
+        '3389': ['Use Network Level Authentication', 'Restrict access by IP', 'Use strong passwords', 'Enable account lockout', 'Consider VPN access'],
+        '5432': ['CRITICAL: Never expose to internet', 'PostgreSQL default port', 'Use strong passwords', 'Enable SSL', 'Change default port'],
+        '5900': ['Use VNC over SSH tunnel', 'Change default password', 'Restrict network access', 'Consider more secure alternatives'],
+        '5901': ['Use VNC over SSH tunnel', 'Change default password', 'Restrict network access', 'Consider more secure alternatives'],
+        '6379': ['CRITICAL: Never expose to internet', 'Redis default port', 'Enable authentication', 'Use SSL/TLS', 'Bind to localhost only'],
+        '8080': ['Use HTTPS (8443) instead', 'Often used for web applications', 'Implement proper authentication', 'Regular security updates'],
+        '8443': ['Verify SSL/TLS configuration', 'Keep certificates updated', 'Monitor for vulnerabilities'],
+        '27017': ['CRITICAL: Never expose to internet', 'MongoDB default port', 'Enable authentication', 'Use SSL/TLS', 'Bind to localhost only']
     }
     
-    return recommendations.get(port, ['Keep service updated', 'Use strong authentication', 'Monitor access logs'])
+    return recommendations.get(port, ['Keep service updated', 'Use strong authentication', 'Monitor access logs', 'Restrict network access'])
+
+def _interpret_nmap_results(scan_results: dict) -> dict:
+    """
+    Interpret nmap scan results and provide comprehensive security analysis.
+    
+    Args:
+        scan_results: The results from run_nmap_scan function
+        
+    Returns:
+        dict: Comprehensive analysis with security implications and recommendations
+    """
+    if not scan_results.get("success"):
+        return {
+            "overall_risk": "unknown",
+            "summary": "Scan failed",
+            "recommendations": ["Verify target is reachable", "Check firewall settings", "Ensure nmap has proper permissions"]
+        }
+    
+    if not scan_results.get("ports_found"):
+        return {
+            "overall_risk": "minimal",
+            "summary": "No open ports found - system appears well secured",
+            "recommendations": ["Verify target is reachable", "System may have strong firewall protection"]
+        }
+    
+    ports_found = scan_results["ports_found"]
+    host_info = scan_results.get("host_info", {})
+    
+    # Analyze risk levels
+    risk_counts = {"critical": 0, "high": 0, "medium": 0, "low": 0}
+    critical_services = []
+    high_risk_services = []
+    open_ports = []
+    
+    for port_info in ports_found:
+        if port_info["state"] == "open":
+            open_ports.append(port_info["port"])
+            risk_level = port_info["security_risk"]
+            risk_counts[risk_level] += 1
+            
+            if risk_level == "critical":
+                critical_services.append(f"Port {port_info['port']} ({port_info['service']})")
+            elif risk_level == "high":
+                high_risk_services.append(f"Port {port_info['port']} ({port_info['service']})")
+    
+    # Determine overall risk
+    if risk_counts["critical"] > 0:
+        overall_risk = "critical"
+    elif risk_counts["high"] > 0:
+        overall_risk = "high"
+    elif risk_counts["medium"] > 0:
+        overall_risk = "medium"
+    elif risk_counts["low"] > 0:
+        overall_risk = "low"
+    else:
+        overall_risk = "minimal"
+    
+    # Generate summary
+    total_open = len(open_ports)
+    target = host_info.get("ip", "target")
+    
+    summary_parts = [
+        f"Scanned {target} and found {total_open} open port{'s' if total_open != 1 else ''}"
+    ]
+    
+    if risk_counts["critical"] > 0:
+        summary_parts.append(f"{risk_counts['critical']} CRITICAL risk service{'s' if risk_counts['critical'] != 1 else ''}")
+    if risk_counts["high"] > 0:
+        summary_parts.append(f"{risk_counts['high']} high risk service{'s' if risk_counts['high'] != 1 else ''}")
+    if risk_counts["medium"] > 0:
+        summary_parts.append(f"{risk_counts['medium']} medium risk service{'s' if risk_counts['medium'] != 1 else ''}")
+    
+    summary = ". ".join(summary_parts) + "."
+    
+    # Generate recommendations
+    recommendations = []
+    
+    if critical_services:
+        recommendations.append("IMMEDIATE ACTION REQUIRED:")
+        for service in critical_services:
+            recommendations.append(f"  • {service} - Extremely high security risk")
+        recommendations.append("  • Block these services at firewall level immediately")
+        recommendations.append("  • Review if these services are actually needed")
+    
+    if high_risk_services:
+        recommendations.append("HIGH PRIORITY:")
+        for service in high_risk_services:
+            recommendations.append(f"  • {service} - Requires immediate security review")
+        recommendations.append("  • Implement strong authentication and encryption")
+        recommendations.append("  • Restrict access to authorized networks only")
+    
+    # General recommendations based on findings
+    if total_open > 10:
+        recommendations.append("GENERAL: Large number of open ports detected - review if all services are necessary")
+    
+    if any(port in ["22", "3389"] for port in open_ports):
+        recommendations.append("REMOTE ACCESS: SSH/RDP detected - ensure strong authentication is enabled")
+    
+    if any(port in ["80", "443", "8080", "8443"] for port in open_ports):
+        recommendations.append("WEB SERVICES: Web servers detected - ensure they are properly secured and updated")
+    
+    if any(port in ["1433", "3306", "5432", "6379", "27017"] for port in open_ports):
+        recommendations.append("DATABASES: Database services exposed - these should NEVER be accessible from internet")
+    
+    # Add follow-up suggestions
+    recommendations.extend([
+        "NEXT STEPS:",
+        "  • Run detailed vulnerability scan with nmap scripts (-sC -sV)",
+        "  • Check for default credentials on discovered services",
+        "  • Review firewall rules and network segmentation",
+        "  • Monitor these services for suspicious activity"
+    ])
+    
+    return {
+        "overall_risk": overall_risk,
+        "summary": summary,
+        "risk_breakdown": risk_counts,
+        "critical_services": critical_services,
+        "high_risk_services": high_risk_services,
+        "total_open_ports": total_open,
+        "recommendations": recommendations,
+        "target_info": host_info
+    }
 
 def run_netstat() -> dict:
     """
