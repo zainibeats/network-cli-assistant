@@ -33,15 +33,15 @@ def run_command(host: str, cmd: str) -> dict:
     # Validate host parameter
     is_valid_host, error_msg, suggestion = validate_target(host)
     if not is_valid_host:
-        return create_validation_error("target host", host, error_msg, suggestion)
+        return {"success": False, "error": error_msg}
     
     # Validate command parameter
     if not cmd or not isinstance(cmd, str):
-        return create_validation_error("command", str(cmd), "Command cannot be empty", "Please provide a valid shell command")
+        return {"success": False, "error": "Command cannot be empty"}
     
     cmd = cmd.strip()
     if not cmd:
-        return create_validation_error("command", cmd, "Command cannot be empty", "Please provide a valid shell command")
+        return {"success": False, "error": "Command cannot be empty"}
     
     # Basic command sanitization - prevent obvious injection attempts
     dangerous_patterns = [';', '&&', '||', '|', '>', '>>', '<', '`', '$()']
@@ -49,8 +49,7 @@ def run_command(host: str, cmd: str) -> dict:
         return {
             "success": False,
             "error": "Command contains potentially dangerous characters",
-            "security_note": "For security reasons, commands with shell operators are not allowed",
-            "suggestion": "Use simple commands without pipes, redirects, or command chaining"
+            "error_type": "security_violation"
         }
     
     # This is a placeholder for a real SSH implementation using a library like paramiko
@@ -77,16 +76,16 @@ def generate_acl(src_ip: str, dst_ip: str, action: Literal["permit", "deny"]) ->
     # Validate source IP address
     is_valid_src, src_error, src_suggestion = validate_ip_with_details(src_ip)
     if not is_valid_src:
-        return create_validation_error("source IP address", src_ip, src_error, src_suggestion)
+        return {"success": False, "error": src_error}
     
     # Validate destination IP address
     is_valid_dst, dst_error, dst_suggestion = validate_ip_with_details(dst_ip)
     if not is_valid_dst:
-        return create_validation_error("destination IP address", dst_ip, dst_error, dst_suggestion)
+        return {"success": False, "error": dst_error}
     
     # Validate action parameter
     if not action or action not in ["permit", "deny"]:
-        return create_validation_error("action", str(action), "Action must be either 'permit' or 'deny'", "Use 'permit' to allow traffic or 'deny' to block traffic")
+        return {"success": False, "error": "Action must be either 'permit' or 'deny'"}
 
     print(f"Generating ACL to {action} traffic from {src_ip} to {dst_ip}...")
     acl_rule = f"access-list 101 {action} ip host {src_ip} host {dst_ip}"
@@ -96,257 +95,169 @@ def ping(host: str) -> dict:
     """
     Pings a host to test network connectivity and measure response times.
     
-    This function sends ICMP Echo Request packets to test:
-    - Network reachability (can packets reach the destination?)
-    - Round-Trip Time (RTT) - how long packets take to travel there and back
-    - Packet loss - what percentage of packets are lost in transit
-    
     Args:
         host: The hostname or IP address to ping
         
     Returns:
-        dict: Contains success status, ping output with RTT analysis, and educational context
+        dict: Contains success status and ping output
     """
     # Validate target parameter
     is_valid_target, error_msg, suggestion = validate_target(host)
     if not is_valid_target:
-        return create_validation_error("target", host, error_msg, suggestion)
+        return {"success": False, "error": error_msg}
 
-    print(f"Pinging host '{host}' to test network connectivity...")
+    print(f"Pinging host '{host}'...")
     command = ['ping', '-c', '4', host]
     try:
         result = subprocess.run(command, capture_output=True, text=True, check=True, timeout=30)
-        
-        # Add educational context to the output
-        enhanced_output = {
+        return {
             "success": True,
             "output": result.stdout,
-            "educational_context": {
-                "what_is_ping": "Ping uses ICMP (Internet Control Message Protocol) to test network connectivity",
-                "rtt_meaning": "RTT (Round-Trip Time) measures how long it takes for a packet to travel to the destination and back",
-                "packet_loss_meaning": "Packet loss indicates network congestion, hardware issues, or connectivity problems",
-                "interpretation_guide": {
-                    "excellent_rtt": "< 10ms - Local network or very fast connection",
-                    "good_rtt": "10-50ms - Good internet connection",
-                    "acceptable_rtt": "50-100ms - Acceptable for most applications",
-                    "poor_rtt": "> 100ms - May cause noticeable delays",
-                    "packet_loss_0": "0% loss - Perfect connectivity",
-                    "packet_loss_low": "1-5% loss - Minor network issues",
-                    "packet_loss_high": "> 5% loss - Significant network problems"
-                }
-            }
+            "stdout": result.stdout,
+            "stderr": result.stderr,
+            "exit_code": result.returncode
         }
-        return enhanced_output
         
     except subprocess.TimeoutExpired:
-        return handle_network_timeout("Ping", host, 30)
+        return {
+            "success": False,
+            "error": f"Ping operation timed out after 30 seconds",
+            "error_type": "timeout"
+        }
     except subprocess.CalledProcessError as e:
         stderr_output = e.stderr or ""
         
-        # Handle specific error cases with detailed guidance
         if "Name or service not known" in stderr_output or "cannot resolve" in stderr_output.lower():
-            return handle_dns_resolution_error(host, stderr_output)
+            return {
+                "success": False,
+                "error": f"DNS resolution failed for '{host}'",
+                "error_type": "dns_resolution"
+            }
         elif "Network is unreachable" in stderr_output:
             return {
                 "success": False,
                 "error": f"Network unreachable when trying to ping {host}",
-                "error_type": "network_unreachable",
-                "troubleshooting": {
-                    "possible_causes": [
-                        "No route to destination network",
-                        "Network interface is down",
-                        "Routing table misconfiguration",
-                        "ISP or network provider issues"
-                    ],
-                    "suggested_actions": [
-                        "Check your network connection",
-                        "Verify your default gateway is reachable",
-                        "Try pinging your local gateway first",
-                        "Check routing table with 'route -n' or 'ip route'"
-                    ]
-                },
-                "educational_note": "Network unreachable means your system cannot find a route to the destination network."
+                "error_type": "network_unreachable"
             }
         elif "Operation not permitted" in stderr_output:
-            return handle_permission_denied_error("ping operation", "ICMP ping may require elevated privileges on some systems")
+            return {
+                "success": False,
+                "error": "Permission denied for ping operation",
+                "error_type": "permission_denied"
+            }
         else:
             return {
                 "success": False,
                 "error": stderr_output or f"Failed to ping {host}",
-                "educational_note": "Ping failures can indicate: host is down, firewall blocking ICMP, network routing issues, or DNS resolution problems"
+                "error_type": "ping_failed"
             }
     except FileNotFoundError:
         return {
             "success": False,
             "error": "Ping command not found",
-            "troubleshooting": {
-                "possible_causes": [
-                    "Ping utility is not installed",
-                    "Ping is not in the system PATH"
-                ],
-                "suggested_actions": [
-                    "Install ping utility (usually part of iputils package)",
-                    "Check if ping is available in /bin/ping or /usr/bin/ping"
-                ]
-            }
+            "error_type": "command_not_found"
+        }
+    except Exception as e:
+        return {
+            "success": False,
+            "error": f"Unexpected error during ping: {str(e)}",
+            "error_type": "unexpected_error"
         }
 
 def traceroute(host: str) -> dict:
     """
     Traces the network path to a destination, showing each router (hop) along the way.
     
-    Traceroute reveals the route packets take through the internet by:
-    - Sending packets with increasing TTL (Time To Live) values
-    - Recording each router that responds when TTL expires
-    - Measuring response times for each hop in the path
-    
-    This helps diagnose:
-    - Network routing issues
-    - Where packet loss occurs
-    - Network latency sources
-    - ISP and network infrastructure
-    
     Args:
         host: The hostname or IP address to trace the route to
         
     Returns:
-        dict: Contains success status, traceroute output, and educational context about network routing
+        dict: Contains success status and traceroute output
     """
     # Validate target parameter
     is_valid_target, error_msg, suggestion = validate_target(host)
     if not is_valid_target:
-        return create_validation_error("target", host, error_msg, suggestion)
+        return {"success": False, "error": error_msg}
 
-    print(f"Tracing network path to '{host}' (this may take 30-60 seconds)...")
+    print(f"Tracing network path to '{host}'...")
     command = ['traceroute', host]
     try:
         result = subprocess.run(command, capture_output=True, text=True, check=True, timeout=120)
-        
-        enhanced_output = {
+        return {
             "success": True,
             "output": result.stdout,
-            "educational_context": {
-                "what_is_traceroute": "Traceroute maps the path packets take through the internet by revealing each router (hop) along the way",
-                "how_it_works": "Uses TTL (Time To Live) field - starts with TTL=1, increases until destination is reached",
-                "hop_explanation": "Each line represents a router/gateway that forwarded your packet toward the destination",
-                "timing_meaning": "Three time measurements show round-trip time to each hop (usually in milliseconds)",
-                "asterisk_meaning": "* indicates the router didn't respond (may be configured to not reply to traceroute)",
-                "interpretation_guide": {
-                    "first_hops": "Usually your local router/gateway and ISP equipment",
-                    "middle_hops": "Internet backbone routers and intermediate networks",
-                    "final_hops": "Destination network's routers and the target host",
-                    "high_latency_hop": "Sudden latency increase may indicate network congestion or long-distance link",
-                    "timeouts": "Multiple * in a row may indicate firewalls or routing issues"
-                },
-                "troubleshooting_tips": [
-                    "Compare routes to different destinations to isolate problems",
-                    "High latency at a specific hop indicates issues at that network",
-                    "Packet loss at intermediate hops may not affect end-to-end connectivity",
-                    "Geographic routing can be seen through hop hostnames and latencies"
-                ]
-            }
+            "stdout": result.stdout,
+            "stderr": result.stderr,
+            "exit_code": result.returncode
         }
-        return enhanced_output
         
     except subprocess.TimeoutExpired:
-        return handle_network_timeout("Traceroute", host, 120)
+        return {
+            "success": False,
+            "error": f"Traceroute operation timed out after 120 seconds",
+            "error_type": "timeout"
+        }
     except subprocess.CalledProcessError as e:
         stderr_output = e.stderr or ""
         
-        # Handle specific error cases with detailed guidance
         if "Name or service not known" in stderr_output or "cannot resolve" in stderr_output.lower():
-            return handle_dns_resolution_error(host, stderr_output)
+            return {
+                "success": False,
+                "error": f"DNS resolution failed for '{host}'",
+                "error_type": "dns_resolution"
+            }
         elif "Network is unreachable" in stderr_output:
             return {
                 "success": False,
                 "error": f"Network unreachable when trying to traceroute to {host}",
-                "error_type": "network_unreachable",
-                "troubleshooting": {
-                    "possible_causes": [
-                        "No route to destination network",
-                        "Network interface is down",
-                        "Routing table misconfiguration",
-                        "ISP or network provider issues"
-                    ],
-                    "suggested_actions": [
-                        "Check your network connection",
-                        "Verify your default gateway is reachable",
-                        "Try pinging the target first",
-                        "Check routing table with 'route -n' or 'ip route'"
-                    ]
-                },
-                "educational_note": "Network unreachable means your system cannot find a route to the destination network."
+                "error_type": "network_unreachable"
             }
         elif "Operation not permitted" in stderr_output:
-            return handle_permission_denied_error("traceroute operation", "Traceroute may require elevated privileges on some systems")
+            return {
+                "success": False,
+                "error": "Permission denied for traceroute operation",
+                "error_type": "permission_denied"
+            }
         else:
             return {
                 "success": False,
                 "error": stderr_output or f"Failed to trace route to {host}",
-                "educational_note": "Traceroute failures can occur due to: firewall blocking, network routing issues, or the traceroute command not being available"
+                "error_type": "traceroute_failed"
             }
     except FileNotFoundError:
         return {
             "success": False,
             "error": "Traceroute command not found",
-            "troubleshooting": {
-                "possible_causes": [
-                    "Traceroute utility is not installed",
-                    "Traceroute is not in the system PATH"
-                ],
-                "suggested_actions": [
-                    "Install traceroute utility (usually part of iputils package)",
-                    "Try 'tracepath' as an alternative",
-                    "Check if traceroute is available in /usr/bin/traceroute"
-                ]
-            }
+            "error_type": "command_not_found"
+        }
+    except Exception as e:
+        return {
+            "success": False,
+            "error": f"Unexpected error during traceroute: {str(e)}",
+            "error_type": "unexpected_error"
         }
 
 def dns_lookup(host: str) -> dict:
     """
     Performs comprehensive DNS lookups including forward and reverse resolution.
     
-    DNS (Domain Name System) is the internet's phone book that translates:
-    - Forward lookup: hostname → IP address (e.g., google.com → 142.250.191.14)
-    - Reverse lookup: IP address → hostname (e.g., 142.250.191.14 → google.com)
-    
-    This function provides both lookups when possible to give complete DNS information.
-    
     Args:
         host: The hostname or IP address to look up
         
     Returns:
-        dict: Contains forward/reverse lookup results and educational context about DNS
+        dict: Contains forward/reverse lookup results
     """
     # Validate target parameter
     is_valid_target, error_msg, suggestion = validate_target(host)
     if not is_valid_target:
-        return create_validation_error("target", host, error_msg, suggestion)
+        return {"success": False, "error": error_msg}
     
-    print(f"Performing comprehensive DNS lookup for '{host}'...")
+    print(f"Performing DNS lookup for '{host}'...")
     
     results = {
         "success": True,
         "forward_lookup": None,
-        "reverse_lookup": None,
-        "educational_context": {
-            "what_is_dns": "DNS translates human-readable domain names to IP addresses and vice versa",
-            "forward_lookup_explanation": "Forward lookup converts domain names (like google.com) to IP addresses",
-            "reverse_lookup_explanation": "Reverse lookup converts IP addresses back to domain names (PTR records)",
-            "dns_record_types": {
-                "A_record": "Maps hostname to IPv4 address",
-                "AAAA_record": "Maps hostname to IPv6 address", 
-                "PTR_record": "Maps IP address back to hostname (reverse lookup)",
-                "CNAME_record": "Creates an alias from one domain name to another",
-                "MX_record": "Specifies mail servers for a domain"
-            },
-            "troubleshooting_tips": [
-                "DNS propagation can take 24-48 hours for new records",
-                "Try different DNS servers (8.8.8.8, 1.1.1.1) if resolution fails",
-                "Check if domain has expired or DNS records are misconfigured",
-                "Reverse lookups may fail if PTR records aren't configured"
-            ]
-        }
+        "reverse_lookup": None
     }
     
     # Determine if input is an IP address or hostname
@@ -387,8 +298,7 @@ def dns_lookup(host: str) -> dict:
                 results["reverse_lookup"] = {
                     "success": False,
                     "ip_address": host,
-                    "error": f"Could not perform reverse lookup: {e}",
-                    "explanation": "Reverse lookup failed - PTR record may not exist or be configured"
+                    "error": f"Could not perform reverse lookup: {e}"
                 }
                 results["success"] = False
                 
@@ -420,23 +330,22 @@ def dns_lookup(host: str) -> dict:
                     results["reverse_lookup"] = {
                         "success": False,
                         "ip_address": ip_address,
-                        "error": "Could not perform reverse lookup - PTR record may not exist"
+                        "error": "Could not perform reverse lookup"
                     }
                     
             except socket.gaierror as e:
                 results["forward_lookup"] = {
                     "success": False,
                     "hostname": host,
-                    "error": f"Could not resolve hostname: {e}",
-                    "explanation": "Forward lookup failed - domain may not exist or DNS server unreachable"
+                    "error": f"Could not resolve hostname: {e}"
                 }
                 results["success"] = False
     
     except Exception as e:
         return {
             "success": False,
-            "error": f"DNS lookup failed: {e}",
-            "educational_note": "DNS lookup errors can indicate network connectivity issues, DNS server problems, or invalid hostnames/IP addresses"
+            "error": f"DNS lookup failed: {str(e)}",
+            "error_type": "dns_lookup_failed"
         }
     
     # Format for backward compatibility with existing code expecting stdout/stderr format
@@ -467,42 +376,30 @@ def dns_lookup(host: str) -> dict:
 
 def run_nmap_scan(target: str, top_ports: int = 10) -> dict:
     """
-    Performs a network port scan using Nmap to discover open services and potential security issues.
-    
-    Nmap (Network Mapper) is a security scanner that:
-    - Discovers which ports are open on target systems
-    - Identifies services running on those ports
-    - Helps assess network security posture
-    - Can detect potential vulnerabilities
-    
-    Port states explained:
-    - Open: Service is actively accepting connections (potential entry point)
-    - Closed: Port is accessible but no service is listening
-    - Filtered: Port is blocked by firewall or packet filter
+    Performs a network port scan using Nmap to discover open services.
     
     Args:
         target (str): The IP address, hostname, or subnet to scan (e.g., 192.168.1.1 or 192.168.1.0/24)
         top_ports (int): Number of most common ports to scan (default: 10, max recommended: 1000)
 
     Returns:
-        dict: Contains scan results with security analysis and educational context
+        dict: Contains scan results
     """
     # Validate target parameter
     is_valid_target, error_msg, suggestion = validate_target(target)
     if not is_valid_target:
-        return create_validation_error("target", target, error_msg, suggestion)
+        return {"success": False, "error": error_msg}
     
     # Validate top_ports parameter
     is_valid_port, port_error, port_suggestion = validate_port(top_ports)
     if not is_valid_port:
-        return create_validation_error("port count", str(top_ports), port_error, port_suggestion)
+        return {"success": False, "error": port_error}
     
     # Additional validation for port count range
     if top_ports > 1000:
-        return create_validation_error("port count", str(top_ports), "Port count too high (max 1000)", "Use a smaller number to avoid excessive scan time")
+        return {"success": False, "error": "Port count too high (max 1000)"}
     
     print(f"Scanning {target} for open ports (top {top_ports} most common ports)...")
-    print("Note: Port scanning should only be performed on systems you own or have permission to test.")
     
     try:
         cmd = [
@@ -571,88 +468,50 @@ def run_nmap_scan(target: str, top_ports: int = 10) -> dict:
                                 }
                                 parsed_output.append(port_info)
 
-        # Prepare enhanced results with educational context
-        enhanced_results = {
+        # Prepare results
+        results = {
             "success": True,
             "host_info": host_info,
             "ports_scanned": top_ports,
-            "ports_found": parsed_output,
-            "educational_context": {
-                "what_is_nmap": "Nmap is a network discovery and security auditing tool used to find open ports and services",
-                "port_states_explained": {
-                    "open": "Service is running and accepting connections - potential entry point for attackers",
-                    "closed": "Port is reachable but no service is listening - generally safe",
-                    "filtered": "Port is blocked by firewall - good security practice for unused services"
-                },
-                "security_implications": {
-                    "open_ports": "Each open port represents a potential attack surface",
-                    "service_versions": "Outdated service versions may contain known vulnerabilities",
-                    "unnecessary_services": "Services not needed should be disabled to reduce attack surface",
-                    "firewall_importance": "Firewalls should block unused ports (showing as 'filtered')"
-                },
-                "common_ports_reference": {
-                    "22": "SSH - Secure remote access",
-                    "23": "Telnet - Insecure remote access (avoid)",
-                    "25": "SMTP - Email sending",
-                    "53": "DNS - Domain name resolution",
-                    "80": "HTTP - Web server (unencrypted)",
-                    "443": "HTTPS - Secure web server",
-                    "993": "IMAPS - Secure email access",
-                    "3389": "RDP - Windows remote desktop"
-                },
-                "best_practices": [
-                    "Only run necessary services",
-                    "Keep services updated to latest versions",
-                    "Use firewalls to block unused ports",
-                    "Monitor for unexpected open ports",
-                    "Use strong authentication for all services",
-                    "Regular security audits and port scans"
-                ]
-            }
+            "ports_found": parsed_output
         }
 
         if not parsed_output:
-            enhanced_results["output"] = f"No open or filtered ports found among the top {top_ports} ports on {target}."
-            enhanced_results["security_assessment"] = "Good - No obvious entry points detected in common ports"
+            results["output"] = f"No open or filtered ports found among the top {top_ports} ports on {target}."
         else:
-            enhanced_results["output"] = parsed_output
-            # Assess overall security posture
-            open_ports = [p for p in parsed_output if p['state'] == 'open']
-            high_risk_ports = [p for p in open_ports if p['security_risk'] == 'high']
-            
-            if high_risk_ports:
-                enhanced_results["security_assessment"] = f"Attention needed - {len(high_risk_ports)} high-risk open ports detected"
-            elif open_ports:
-                enhanced_results["security_assessment"] = f"Review recommended - {len(open_ports)} open ports found"
-            else:
-                enhanced_results["security_assessment"] = "Good - Only filtered ports detected"
+            results["output"] = parsed_output
 
-        return enhanced_results
+        return results
         
     except subprocess.CalledProcessError as e:
         # Nmap exits with an error if the host is down
-        if "Host seems down" in e.stderr:
+        if "Host seems down" in (e.stderr or ""):
             return {
                 "success": True, 
-                "output": f"Host {target} appears to be down or not responding to ping.",
-                "educational_note": "Host may be down, blocking ping (ICMP), or behind a firewall. Try scanning with -Pn flag to skip ping."
+                "output": f"Host {target} appears to be down or not responding to ping."
             }
         return {
             "success": False, 
             "error": e.stderr or str(e),
-            "educational_note": "Nmap scan failed. Ensure nmap is installed and you have permission to scan the target."
+            "error_type": "nmap_failed"
         }
     except ET.ParseError:
         return {
             "success": False, 
             "error": "Failed to parse nmap XML output.",
-            "educational_note": "Nmap output parsing failed. This may indicate an nmap version compatibility issue."
+            "error_type": "parse_error"
+        }
+    except FileNotFoundError:
+        return {
+            "success": False,
+            "error": "Nmap command not found",
+            "error_type": "command_not_found"
         }
     except Exception as ex:
         return {
             "success": False, 
             "error": str(ex),
-            "educational_note": "Unexpected error during port scan. Check target format and network connectivity."
+            "error_type": "unexpected_error"
         }
 
 def _assess_port_security_risk(port: str, state: str, service: str) -> str:
@@ -693,16 +552,40 @@ def run_netstat() -> dict:
     """
     Runs 'netstat -tulpn' to list listening TCP and UDP ports.
 
-    Note: This command may require root privileges to see all processes.
-
     Returns:
         dict: A dictionary with the command's output or an error message.
     """
     try:
         cmd = ["netstat", "-tulpn"]
-        result = subprocess.run(cmd, capture_output=True, text=True, check=True)
-        return {"success": True, "output": result.stdout}
+        result = subprocess.run(cmd, capture_output=True, text=True, check=True, timeout=30)
+        return {
+            "success": True, 
+            "output": result.stdout,
+            "stdout": result.stdout,
+            "stderr": result.stderr,
+            "exit_code": result.returncode
+        }
+    except subprocess.TimeoutExpired:
+        return {
+            "success": False,
+            "error": "Netstat operation timed out after 30 seconds",
+            "error_type": "timeout"
+        }
     except subprocess.CalledProcessError as e:
-        return {"success": False, "error": e.stderr or str(e)}
+        return {
+            "success": False, 
+            "error": e.stderr or str(e),
+            "error_type": "netstat_failed"
+        }
+    except FileNotFoundError:
+        return {
+            "success": False,
+            "error": "Netstat command not found",
+            "error_type": "command_not_found"
+        }
     except Exception as ex:
-        return {"success": False, "error": str(ex)}
+        return {
+            "success": False, 
+            "error": str(ex),
+            "error_type": "unexpected_error"
+        }
