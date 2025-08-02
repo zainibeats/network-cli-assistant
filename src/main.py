@@ -33,6 +33,16 @@ def main():
             # 2. Pass the input to the dispatcher to get a structured command.
             command = parse_command(user_input)
 
+            # Handle dispatcher errors
+            if "error" in command:
+                error_msg = command.get("message", "Could not understand command")
+                print(f"Error: {error_msg}")
+                if "suggestions" in command:
+                    print("Suggestions:")
+                    for suggestion in command["suggestions"]:
+                        print(f"  - {suggestion}")
+                continue
+
             if not command or "function" not in command:
                 print("Sorry, I could not understand that command. Please try again.")
                 continue
