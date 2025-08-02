@@ -276,34 +276,17 @@ def create_validation_error(field_name: str, value: str, error_msg: str, suggest
     Returns:
         Standardized error dictionary
     """
-    error_response = {
+    return {
         "success": False,
         "error": f"Invalid {field_name}: {error_msg}",
         "field": field_name,
         "invalid_value": value,
-        "validation_details": {
-            "message": error_msg,
-            "suggestion": suggestion or f"Please provide a valid {field_name}",
-            "examples": _get_validation_examples(field_name)
-        }
+        "error_type": "validation_error"
     }
-    
-    return error_response
-
-def _get_validation_examples(field_name: str) -> List[str]:
-    """Get example values for different field types."""
-    examples = {
-        "IP address": ["192.168.1.1", "10.0.0.1", "2001:db8::1", "::1"],
-        "hostname": ["google.com", "server.local", "example.org", "my-server.company.com"],
-        "port": ["80", "443", "22", "8080"],
-        "target": ["192.168.1.1", "google.com", "server.local"]
-    }
-    
-    return examples.get(field_name, [])
 
 def handle_network_timeout(operation: str, target: str, timeout_seconds: int = None) -> dict:
     """
-    Creates a standardized network timeout error response with troubleshooting guidance.
+    Creates a standardized network timeout error response.
     
     Args:
         operation: The network operation that timed out
@@ -319,34 +302,12 @@ def handle_network_timeout(operation: str, target: str, timeout_seconds: int = N
         "success": False,
         "error": f"{operation} operation timed out{timeout_msg}",
         "target": target,
-        "error_type": "network_timeout",
-        "troubleshooting": {
-            "possible_causes": [
-                "Target host is down or unreachable",
-                "Network connectivity issues",
-                "Firewall blocking the connection",
-                "DNS resolution problems",
-                "Network congestion or high latency"
-            ],
-            "suggested_actions": [
-                f"Verify {target} is reachable with a basic ping test",
-                "Check your network connection",
-                "Try the operation again in a few moments",
-                "Verify the target address is correct",
-                "Check if a firewall is blocking the connection"
-            ],
-            "next_steps": [
-                f"ping {target}",
-                f"traceroute {target}",
-                f"nslookup {target}"
-            ]
-        },
-        "educational_note": f"{operation} timeouts often indicate network connectivity issues. The target may be down, unreachable, or protected by a firewall."
+        "error_type": "network_timeout"
     }
 
 def handle_dns_resolution_error(hostname: str, error_details: str = None) -> dict:
     """
-    Creates a standardized DNS resolution error response with troubleshooting guidance.
+    Creates a standardized DNS resolution error response.
     
     Args:
         hostname: The hostname that failed to resolve
@@ -360,34 +321,12 @@ def handle_dns_resolution_error(hostname: str, error_details: str = None) -> dic
         "error": f"DNS resolution failed for '{hostname}'",
         "hostname": hostname,
         "error_type": "dns_resolution",
-        "details": error_details,
-        "troubleshooting": {
-            "possible_causes": [
-                "Domain name does not exist",
-                "DNS server is unreachable",
-                "Temporary DNS server issues",
-                "Network connectivity problems",
-                "Incorrect domain name spelling"
-            ],
-            "suggested_actions": [
-                "Check the spelling of the domain name",
-                "Try using a different DNS server (8.8.8.8 or 1.1.1.1)",
-                "Wait a few minutes and try again",
-                "Check your internet connection",
-                "Verify the domain exists by checking it in a web browser"
-            ],
-            "common_mistakes": [
-                "Missing or incorrect top-level domain (.com, .org, .net)",
-                "Typos in domain name",
-                "Using internal hostnames without proper DNS setup"
-            ]
-        },
-        "educational_note": "DNS (Domain Name System) translates human-readable domain names to IP addresses. Resolution failures usually indicate the domain doesn't exist or DNS servers are unreachable."
+        "details": error_details
     }
 
 def handle_connection_refused_error(target: str, port: int = None, service: str = None) -> dict:
     """
-    Creates a standardized connection refused error response with troubleshooting guidance.
+    Creates a standardized connection refused error response.
     
     Args:
         target: The target host that refused the connection
@@ -406,34 +345,12 @@ def handle_connection_refused_error(target: str, port: int = None, service: str 
         "target": target,
         "port": port,
         "service": service,
-        "error_type": "connection_refused",
-        "troubleshooting": {
-            "possible_causes": [
-                f"No service is running{port_info} on {target}",
-                "Service is down or crashed",
-                "Firewall is blocking the connection",
-                "Service is configured to reject connections",
-                "Wrong port number specified"
-            ],
-            "suggested_actions": [
-                f"Verify the service is running on {target}",
-                f"Check if the correct port number is being used",
-                "Confirm the service accepts connections from your location",
-                "Check firewall settings on both client and server",
-                "Try connecting from the same network as the target"
-            ],
-            "diagnostic_commands": [
-                f"nmap -p {port} {target}" if port else f"nmap {target}",
-                f"telnet {target} {port}" if port else None,
-                f"ping {target}"
-            ]
-        },
-        "educational_note": "Connection refused means the target host is reachable but no service is listening on the specified port, or the service is actively rejecting connections."
+        "error_type": "connection_refused"
     }
 
 def handle_permission_denied_error(operation: str, additional_info: str = None) -> dict:
     """
-    Creates a standardized permission denied error response with troubleshooting guidance.
+    Creates a standardized permission denied error response.
     
     Args:
         operation: The operation that was denied
@@ -446,28 +363,12 @@ def handle_permission_denied_error(operation: str, additional_info: str = None) 
         "success": False,
         "error": f"Permission denied for {operation}",
         "error_type": "permission_denied",
-        "additional_info": additional_info,
-        "troubleshooting": {
-            "possible_causes": [
-                "Insufficient user privileges",
-                "Operation requires administrator/root access",
-                "Security policy blocking the operation",
-                "File or resource permissions are restrictive"
-            ],
-            "suggested_actions": [
-                "Try running with elevated privileges (sudo/administrator)",
-                "Check if your user account has necessary permissions",
-                "Contact system administrator if in corporate environment",
-                "Verify the operation is allowed by security policies"
-            ],
-            "security_note": "Permission restrictions are often in place for security reasons"
-        },
-        "educational_note": f"Permission denied errors occur when the current user lacks sufficient privileges to perform {operation}."
+        "additional_info": additional_info
     }
 
 def handle_command_not_found_error(command: str, alternatives: List[str] = None) -> dict:
     """
-    Creates a standardized command not found error response with alternatives.
+    Creates a standardized command not found error response.
     
     Args:
         command: The command that was not found
@@ -481,23 +382,7 @@ def handle_command_not_found_error(command: str, alternatives: List[str] = None)
         "error": f"Command '{command}' not found",
         "error_type": "command_not_found",
         "missing_command": command,
-        "troubleshooting": {
-            "possible_causes": [
-                f"'{command}' is not installed on this system",
-                f"'{command}' is not in the system PATH",
-                "Package containing the command is not installed",
-                "Command name is misspelled"
-            ],
-            "suggested_actions": [
-                f"Install the package containing '{command}'",
-                f"Check if '{command}' is available in a different location",
-                "Verify the command name spelling",
-                "Update your system's package list"
-            ],
-            "alternatives": alternatives or [],
-            "installation_hints": _get_installation_hints(command)
-        },
-        "educational_note": f"'{command}' is a network utility that may need to be installed separately on some systems."
+        "alternatives": alternatives or []
     }
 
 def _get_installation_hints(command: str) -> List[str]:
@@ -665,49 +550,26 @@ def retry_network_operation(operation_func, max_retries: int = 3, delay_seconds:
 def format_output(data: dict) -> str:
     """
     Formats a dictionary for clean, human-readable printing to the console.
-    Provides educational context and color-coded output for different network operations.
     
     Args:
         data: Dictionary containing operation results
         
     Returns:
-        Formatted string with colors, explanations, and visual structure
+        Formatted string with colors and basic structure
     """
     if not isinstance(data, dict):
         return str(data)
 
-    # Handle error cases with enhanced formatting
+    # Handle error cases with basic formatting
     if data.get("success") is False:
         error_message = data.get("error", "An unknown error occurred.")
         formatted_lines = []
         formatted_lines.append(f"{Colors.RED}{Colors.BOLD}❌ OPERATION FAILED{Colors.END}")
         formatted_lines.append(f"{Colors.RED}Error: {error_message}{Colors.END}")
         
-        # Add validation details if available
-        if "validation_details" in data:
-            details = data["validation_details"]
-            formatted_lines.append(f"\n{Colors.YELLOW}💡 {details['suggestion']}{Colors.END}")
-            if details.get("examples"):
-                formatted_lines.append(f"{Colors.CYAN}Examples: {', '.join(details['examples'])}{Colors.END}")
-        
-        # Add troubleshooting information if available
-        if "troubleshooting" in data:
-            troubleshooting = data["troubleshooting"]
-            formatted_lines.append(f"\n{Colors.YELLOW}🔧 Troubleshooting:{Colors.END}")
-            
-            if "possible_causes" in troubleshooting:
-                formatted_lines.append(f"{Colors.CYAN}Possible causes:{Colors.END}")
-                for cause in troubleshooting["possible_causes"][:3]:  # Limit to 3 causes
-                    formatted_lines.append(f"  • {cause}")
-            
-            if "suggested_actions" in troubleshooting:
-                formatted_lines.append(f"{Colors.CYAN}Suggested actions:{Colors.END}")
-                for action in troubleshooting["suggested_actions"][:3]:  # Limit to 3 actions
-                    formatted_lines.append(f"  • {action}")
-        
-        # Add educational note if available
-        if "educational_note" in data:
-            formatted_lines.append(f"\n{Colors.MAGENTA}📚 {data['educational_note']}{Colors.END}")
+        # Add error type if available
+        if "error_type" in data:
+            formatted_lines.append(f"{Colors.YELLOW}Type: {data['error_type']}{Colors.END}")
         
         return '\n'.join(formatted_lines)
 
@@ -716,19 +578,11 @@ def format_output(data: dict) -> str:
     
     if output is None:
         # Handle cases where there's no specific 'output' key
-        clean_data = {k: v for k, v in data.items() if k not in ["success", "educational_context"]}
+        clean_data = {k: v for k, v in data.items() if k not in ["success"]}
         formatted_lines = [f"{Colors.GREEN}✅ Operation completed successfully{Colors.END}"]
         
         if clean_data:
             formatted_lines.append(json.dumps(clean_data, indent=2))
-        
-        # Add educational context if available
-        if "educational_context" in data:
-            context = data["educational_context"]
-            formatted_lines.append(f"\n{Colors.CYAN}📚 Educational Context:{Colors.END}")
-            for key, value in context.items():
-                if isinstance(value, str):
-                    formatted_lines.append(f"{Colors.YELLOW}{key.replace('_', ' ').title()}:{Colors.END} {value}")
         
         return '\n'.join(formatted_lines)
 
@@ -737,14 +591,6 @@ def format_output(data: dict) -> str:
         formatted_lines = [f"{Colors.GREEN}✅ Operation completed successfully{Colors.END}"]
         formatted_lines.append(f"\n{Colors.BOLD}Output:{Colors.END}")
         formatted_lines.append(output)
-        
-        # Add educational context if available
-        if "educational_context" in data:
-            context = data["educational_context"]
-            formatted_lines.append(f"\n{Colors.CYAN}📚 Educational Context:{Colors.END}")
-            for key, value in context.items():
-                if isinstance(value, str):
-                    formatted_lines.append(f"{Colors.YELLOW}{key.replace('_', ' ').title()}:{Colors.END} {value}")
         
         return '\n'.join(formatted_lines)
     
