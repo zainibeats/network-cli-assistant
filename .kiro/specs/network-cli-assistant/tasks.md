@@ -68,15 +68,6 @@
   - _Requirements: 6.1, 6.2_
 
 - [x] 10. Add logging and debugging capabilities
-
-
-
-
-
-
-
-
-
   - Implement logging system for debugging network operations
   - Add verbose mode for detailed operation information
   - Create debug output that helps users understand what the tool is doing
@@ -93,7 +84,47 @@
   - Write comprehensive tests for enhanced function features
   - _Requirements: 1.1, 1.2, 6.1, 6.4_
 
-- [ ] 12. Update documentation
+- [x] 12. Update documentation
+
+
+
+
+
   - Create example scenarios and common use cases in README.md
   - Ensure accuracy and completeness in README.md documentation
   - _Requirements: 4.1, 4.2, 4.4_
+
+- [x] 13. Enhance port scanning and host discovery capabilities
+  - Modify run_nmap_scan function to allow scanning more than the current default of 10 ports
+  - Add configurable port range options (top-ports, specific ports, port ranges)
+  - Enhance discover_hosts function to scan more than the current limit of 10 IP addresses
+  - Add configurable host discovery range options (full network scan, custom IP ranges)
+  - Implement performance considerations and timeout handling for larger scans
+  - Add progress indicators for long-running scans
+  - Create validation for reasonable scan limits to prevent system overload
+  - Write comprehensive tests for enhanced scanning capabilities
+  - _Requirements: 1.1, 1.2, 6.1, 6.4_
+
+- [x] 14. Refactor codebase into smaller, more modular files
+  - Break down src/core_functions.py into separate modules by functionality:
+    - src/network/ssh.py - SSH command execution functions (run_command)
+    - src/network/acl.py - ACL generation functions (generate_acl)
+    - src/network/connectivity.py - Basic connectivity functions (ping, traceroute)
+    - src/network/dns.py - DNS lookup functions (dns_lookup)
+    - src/network/discovery.py - Host and network discovery functions (discover_hosts)
+    - src/network/scanning.py - Port scanning functions (run_nmap_scan, run_netstat)
+    - src/network/analysis.py - Result analysis and interpretation functions
+  - Split src/utils.py into focused utility modules:
+    - src/validation/network.py - Network-specific validation functions
+    - src/validation/input.py - General input validation functions
+    - src/formatting/output.py - Output formatting and display functions
+    - src/formatting/colors.py - Color constants and terminal formatting
+    - src/error_handling/network.py - Network error handling functions
+    - src/error_handling/common.py - Common error handling utilities
+  - Create proper module initialization files with clear imports
+  - Update all import statements throughout the codebase to use new module structure
+  - Ensure backward compatibility by maintaining existing public API
+  - Add module-level docstrings explaining the purpose of each new module
+  - Update tests to reflect new module structure and verify all functionality still works
+  - Create a migration guide documenting the new structure for future development
+  - _Requirements: Code maintainability, modularity, separation of concerns_
