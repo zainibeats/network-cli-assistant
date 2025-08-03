@@ -85,11 +85,6 @@
   - _Requirements: 1.1, 1.2, 6.1, 6.4_
 
 - [x] 12. Update documentation
-
-
-
-
-
   - Create example scenarios and common use cases in README.md
   - Ensure accuracy and completeness in README.md documentation
   - _Requirements: 4.1, 4.2, 4.4_
