@@ -7,8 +7,6 @@ from the new modular structure to maintain backward compatibility.
 
 # Import all functions from the new modular structure
 from .network import (
-    run_command,
-    generate_acl,
     ping,
     traceroute,
     dns_lookup,
@@ -19,8 +17,6 @@ from .network import (
 
 # Export all functions to maintain backward compatibility
 __all__ = [
-    'run_command',
-    'generate_acl',
     'ping',
     'traceroute',
     'dns_lookup',
