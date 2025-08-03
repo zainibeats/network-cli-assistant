@@ -82,20 +82,28 @@ Build a **CLI Assistant for Common Network Tasks** that:
 These are the key Python functions exposed for AI use:
 
 ```python
-run_command(host: str, cmd: str) -> dict
-# Connect via SSH and run a shell command on a remote host
+ping(host: str) -> dict
+# Test connectivity to a host using ICMP ping
 
-generate_acl(src_ip: str, dst_ip: str, action: Literal["permit", "deny"]) -> dict
-# Create a Cisco ACL rule to allow or block traffic
+traceroute(host: str) -> dict  
+# Trace network path to a host
+
+dns_lookup(hostname: str) -> dict
+# Perform DNS resolution for a hostname
+
+run_nmap_scan(target: str, ports: str = None) -> dict
+# Scan ports on target host or network
+
+run_netstat() -> dict
+# Show local network connections and listening ports
 ```
 
 The AI should recommend structured calls to these functions based on natural language input, like:
 
 ```json
 {
-  "command": "run_command",
-  "host": "192.0.2.10",
-  "cmd": "netstat -tulnp"
+  "command": "ping",
+  "host": "google.com"
 }
 ```
 
@@ -112,29 +120,38 @@ The AI should recommend structured calls to these functions based on natural lan
 
 ## ✅ Example Prompts & Responses
 
-**User:** *"What ports are open on server 10.1.1.1?"*
+**User:** *"What ports are open locally?"*
 
 **AI Suggestion:**
 
 ```json
 {
-  "command": "run_command",
-  "host": "10.1.1.1",
-  "cmd": "netstat -tulnp"
+  "command": "run_netstat"
 }
 ```
 
 ---
 
-**User:** *"Block 203.0.113.45 from reaching 192.0.2.10"*
+**User:** *"Check if google.com is reachable"*
 
 **AI Suggestion:**
 
 ```json
 {
-  "command": "generate_acl",
-  "src_ip": "203.0.113.45",
-  "dst_ip": "192.0.2.10",
-  "action": "deny"
+  "command": "ping",
+  "host": "google.com"
+}
+```
+
+---
+
+**User:** *"Scan ports on 192.168.1.1"*
+
+**AI Suggestion:**
+
+```json
+{
+  "command": "run_nmap_scan",
+  "target": "192.168.1.1"
 }
 ```
