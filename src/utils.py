@@ -621,23 +621,40 @@ def _format_nmap_output(data: dict) -> str:
     if ports_found:
         formatted_lines.append(f"\n{Colors.BOLD}Open Ports and Security Assessment:{Colors.END}")
         
+        # Consolidate ports by port number and base service name to avoid duplicates
+        unique_ports = {}
         for port_info in ports_found:
             if port_info["state"] == "open":
                 port = port_info["port"]
                 service = port_info["service"]
-                risk = port_info["security_risk"]
                 
-                # Color code by risk level
-                port_color = risk_colors.get(risk, Colors.WHITE)
-                formatted_lines.append(f"  {port_color}Port {port} ({service}) - {risk.upper()} RISK{Colors.END}")
+                # Extract base service name (before any parentheses for product/version info)
+                base_service = service.split('(')[0].strip()
+                key = f"{port}_{base_service}"
                 
-                # Add specific recommendations for this port
-                recommendations = port_info.get("recommendations", [])
-                if recommendations:
-                    for rec in recommendations[:2]:  # Show first 2 recommendations
-                        formatted_lines.append(f"    • {rec}")
-                    if len(recommendations) > 2:
-                        formatted_lines.append(f"    • ... and {len(recommendations) - 2} more recommendations")
+                if key not in unique_ports:
+                    # Use the base service name for display consistency
+                    consolidated_port_info = port_info.copy()
+                    consolidated_port_info["service"] = base_service
+                    unique_ports[key] = consolidated_port_info
+        
+        # Display each unique port/service combination once
+        for port_info in unique_ports.values():
+            port = port_info["port"]
+            service = port_info["service"]
+            risk = port_info["security_risk"]
+            
+            # Color code by risk level
+            port_color = risk_colors.get(risk, Colors.WHITE)
+            formatted_lines.append(f"  {port_color}Port {port} ({service}) - {risk.upper()} RISK{Colors.END}")
+            
+            # Add specific recommendations for this port
+            recommendations = port_info.get("recommendations", [])
+            if recommendations:
+                for rec in recommendations[:2]:  # Show first 2 recommendations
+                    formatted_lines.append(f"    • {rec}")
+                if len(recommendations) > 2:
+                    formatted_lines.append(f"    • ... and {len(recommendations) - 2} more recommendations")
     
     # Overall recommendations
     recommendations = interpretation.get("recommendations", [])
