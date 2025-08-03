@@ -106,7 +106,7 @@ def main():
 
             app_logger.info(f"Executing function: {function_name}", extra={
                 "function": function_name,
-                "args": function_args
+                "function_args": function_args
             })
 
             try:

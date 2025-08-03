@@ -49,7 +49,15 @@ You have access to the following functions:
 
 {core_functions_str}
 
-Respond with ONLY the JSON object, nothing else. If you cannot determine the intent, respond with:
+Respond with ONLY the JSON object in this exact format:
+{{"function": "function_name", "args": {{"param1": "value1", "param2": "value2"}}}}
+
+For example:
+- For "ping google.com": {{"function": "ping", "args": {{"host": "google.com"}}}}
+- For "lookup DNS for example.com": {{"function": "dns_lookup", "args": {{"host": "example.com"}}}}
+- For "scan ports on 192.168.1.1": {{"function": "run_nmap_scan", "args": {{"target": "192.168.1.1"}}}}
+
+If you cannot determine the intent, respond with:
 {{"error": "ambiguous"}}
 
 The user's request will be provided after the '>>>'.

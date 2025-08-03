@@ -333,7 +333,7 @@ class NetworkLogger:
             logger.info("AI successfully parsed user command", extra={
                 "user_input": user_input,
                 "parsed_function": parsed_command.get("function"),
-                "parsed_args": parsed_command.get("args", {}),
+                "function_args": parsed_command.get("args", {}),
                 "input_length": len(user_input)
             })
         else:
