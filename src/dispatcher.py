@@ -49,12 +49,25 @@ You have access to the following functions:
 
 {core_functions_str}
 
+IMPORTANT: When users mention domain names without TLDs (like "google", "mullvad", "github"), use your knowledge to provide the correct full domain name:
+- "google" → "google.com"
+- "mullvad" → "mullvad.net" 
+- "github" → "github.com"
+- "wikipedia" → "wikipedia.org"
+- "archive" → "archive.org"
+- "reddit" → "reddit.com"
+- "stackoverflow" → "stackoverflow.com"
+- etc.
+
+Use your training data knowledge of well-known websites and services to determine the correct TLD.
+
 Respond with ONLY the JSON object in this exact format:
 {{"function": "function_name", "args": {{"param1": "value1", "param2": "value2"}}}}
 
 For example:
-- For "ping google.com": {{"function": "ping", "args": {{"host": "google.com"}}}}
-- For "lookup DNS for example.com": {{"function": "dns_lookup", "args": {{"host": "example.com"}}}}
+- For "ping google": {{"function": "ping", "args": {{"host": "google.com"}}}}
+- For "what is the ip of mullvad": {{"function": "dns_lookup", "args": {{"host": "mullvad.net"}}}}
+- For "lookup DNS for github": {{"function": "dns_lookup", "args": {{"host": "github.com"}}}}
 - For "scan ports on 192.168.1.1": {{"function": "run_nmap_scan", "args": {{"target": "192.168.1.1"}}}}
 
 If you cannot determine the intent, respond with:

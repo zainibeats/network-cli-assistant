@@ -363,7 +363,7 @@ def dns_lookup(host: str) -> dict:
                         "error": f"Could not perform forward lookup for resolved hostname {hostname}"
                     }
                     
-            except socket.gaierror as e:
+            except (socket.gaierror, socket.herror) as e:
                 logger.error(f"Reverse lookup failed for {host}: {e}")
                 results["reverse_lookup"] = {
                     "success": False,
@@ -397,7 +397,7 @@ def dns_lookup(host: str) -> dict:
                     if reverse_hostname.lower() != host.lower():
                         logger.warning(f"DNS consistency issue: reverse lookup returned {reverse_hostname}, original was {host}")
                         results["reverse_lookup"]["note"] = f"Reverse lookup returned different hostname ({reverse_hostname}) than original ({host})"
-                except socket.gaierror:
+                except (socket.gaierror, socket.herror):
                     logger.warning(f"Reverse lookup failed for {ip_address}")
                     results["reverse_lookup"] = {
                         "success": False,
