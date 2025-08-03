@@ -168,6 +168,46 @@ def validate_target(target: str) -> Tuple[bool, Optional[str], Optional[str]]:
     # Neither IP nor hostname is valid
     return False, f"Invalid target: {ip_error or hostname_error}", None
 
+def validate_network_target(target: str) -> Tuple[bool, Optional[str], Optional[str]]:
+    """
+    Validates a network target (IP address, hostname, or CIDR notation).
+    
+    Args:
+        target: The target to validate (IP address, hostname, or CIDR like 192.168.1.0/24)
+        
+    Returns:
+        Tuple of (is_valid, error_message, target_type)
+        target_type can be: 'ip', 'hostname', 'cidr', or None
+    """
+    if not target or not isinstance(target, str):
+        return False, "Target cannot be empty", None
+    
+    target = target.strip()
+    
+    if not target:
+        return False, "Target cannot be empty", None
+    
+    # Check if it's CIDR notation
+    if '/' in target:
+        try:
+            network = ipaddress.ip_network(target, strict=False)
+            return True, None, 'cidr'
+        except ValueError as e:
+            return False, f"Invalid CIDR notation: {str(e)}", None
+    
+    # First try IP validation
+    is_valid_ip, ip_error, _ = validate_ip_with_details(target)
+    if is_valid_ip:
+        return True, None, 'ip'
+    
+    # If not a valid IP, try hostname validation
+    is_valid_hostname, hostname_error, _ = validate_hostname(target)
+    if is_valid_hostname:
+        return True, None, 'hostname'
+    
+    # Neither IP, hostname, nor CIDR is valid
+    return False, f"Invalid target: {ip_error or hostname_error}", None
+
 def validate_port(port: Union[str, int]) -> Tuple[bool, Optional[str], Optional[str]]:
     """
     Validates a port number.
@@ -338,9 +378,20 @@ def validate_network_operation_input(operation: str, **kwargs) -> Tuple[bool, Op
             validation_errors.append(create_validation_error("target host", kwargs['host'], error_msg))
     
     if 'target' in kwargs:
-        is_valid, error_msg, _ = validate_target(kwargs['target'])
+        # For nmap operations, use network target validation that supports CIDR
+        if operation == 'run_nmap_scan':
+            is_valid, error_msg, _ = validate_network_target(kwargs['target'])
+        else:
+            is_valid, error_msg, _ = validate_target(kwargs['target'])
         if not is_valid:
             validation_errors.append(create_validation_error("target", kwargs['target'], error_msg))
+    
+    if 'network' in kwargs:
+        # For host discovery operations, use network target validation that supports CIDR
+        if operation == 'discover_hosts':
+            is_valid, error_msg, _ = validate_network_target(kwargs['network'])
+            if not is_valid:
+                validation_errors.append(create_validation_error("network", kwargs['network'], error_msg))
     
     if 'src_ip' in kwargs:
         is_valid, error_msg, _ = validate_ip_with_details(kwargs['src_ip'])
@@ -527,6 +578,10 @@ def _format_nmap_output(data: dict) -> str:
     ports_found = data.get("ports_found", [])
     host_info = data.get("host_info", {})
     
+    # Check if this is a network scan with multiple hosts
+    network_summary = data.get("network_summary")
+    hosts_with_ports = data.get("hosts_with_ports", [])
+    
     # Header with overall risk assessment
     overall_risk = interpretation.get("overall_risk", "unknown")
     risk_colors = {
@@ -541,6 +596,11 @@ def _format_nmap_output(data: dict) -> str:
     risk_color = risk_colors.get(overall_risk, Colors.WHITE)
     formatted_lines.append(f"{Colors.GREEN}✅ Nmap scan completed{Colors.END}")
     formatted_lines.append(f"{Colors.BOLD}Security Risk Level: {risk_color}{overall_risk.upper()}{Colors.END}")
+    
+    # For network scans, show the network summary first
+    if network_summary and len(hosts_with_ports) > 1:
+        formatted_lines.append(f"\n{Colors.BOLD}Network Scan Results:{Colors.END}")
+        formatted_lines.append(network_summary)
     
     # Summary
     summary = interpretation.get("summary", "Scan completed")
