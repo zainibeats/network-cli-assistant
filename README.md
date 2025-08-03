@@ -11,8 +11,6 @@ Network CLI Assistant is a powerful command-line interface that leverages natura
   - Ping and traceroute diagnostics with detailed analysis
   - Forward and reverse DNS lookups
   - Host discovery and network scanning
-  - Cisco ACL generation
-  - SSH command execution on remote hosts
 - **Enhanced Output**: Clear, educational formatting with security risk assessments and recommendations
 - **Robust Error Handling**: Comprehensive validation and helpful error messages
 - **Docker Support**: Consistent environment across all platforms
@@ -131,135 +129,6 @@ Once the application is running, you can use natural language to perform network
   List all network connections
   ```
 
-### Security and Configuration
-
-- **ACL Generation**:
-  ```text
-  Block 192.168.1.100 from reaching 10.0.0.1
-  Create ACL to permit 172.16.0.0/16 to 192.168.1.0/24
-  Generate deny rule for 203.0.113.45
-  ```
-
-- **Remote Command Execution**:
-  ```text
-  Run netstat on server.example.com
-  Execute ps aux on 192.168.1.10
-  Check disk space on remote host
-  ```
-
-## 📋 Common Use Cases and Scenarios
-
-### Network Troubleshooting Workflow
-
-**Scenario**: A user reports they cannot access a web service
-
-1. **Test Basic Connectivity**:
-   ```text
-   Ping webserver.company.com
-   ```
-
-2. **Check DNS Resolution**:
-   ```text
-   DNS lookup for webserver.company.com
-   ```
-
-3. **Verify Service Availability**:
-   ```text
-   Scan ports 80,443 on webserver.company.com
-   ```
-
-4. **Trace Network Path**:
-   ```text
-   Traceroute to webserver.company.com
-   ```
-
-### Security Assessment Workflow
-
-**Scenario**: Performing a security audit of network infrastructure
-
-1. **Network Discovery**:
-   ```text
-   Discover hosts on 192.168.1.0/24
-   ```
-
-2. **Port Scanning**:
-   ```text
-   Scan top 1000 ports on 192.168.1.0/24
-   ```
-
-3. **Service Identification**:
-   ```text
-   Scan specific ports 22,23,80,443,3389 on discovered hosts
-   ```
-
-4. **Generate Security Rules**:
-   ```text
-   Block 192.168.1.100 from reaching 192.168.1.1
-   ```
-
-### Server Maintenance Workflow
-
-**Scenario**: Checking server status and configuration
-
-1. **Verify Server Accessibility**:
-   ```text
-   Ping production-server.company.com
-   ```
-
-2. **Check Running Services**:
-   ```text
-   Run netstat -tulpn on production-server.company.com
-   ```
-
-3. **Monitor Local Connections**:
-   ```text
-   Show me all listening ports
-   ```
-
-### Network Mapping Workflow
-
-**Scenario**: Documenting network infrastructure
-
-1. **Discover Active Hosts**:
-   ```text
-   Discover hosts on 10.0.0.0/24
-   ```
-
-2. **Identify Services**:
-   ```text
-   Scan top 100 ports on each discovered host
-   ```
-
-3. **DNS Mapping**:
-   ```text
-   Reverse lookup each discovered IP
-   ```
-
-### Incident Response Workflow
-
-**Scenario**: Investigating suspicious network activity
-
-1. **Check Local Connections**:
-   ```text
-   Show me all listening ports
-   ```
-
-2. **Scan for Unexpected Services**:
-   ```text
-   Scan ports 1-65535 on localhost
-   ```
-
-3. **Verify External Connectivity**:
-   ```text
-   Ping suspicious-domain.com
-   DNS lookup for suspicious-domain.com
-   ```
-
-4. **Block Suspicious Traffic**:
-   ```text
-   Block 203.0.113.45 from reaching our network
-   ```
-
 ## 🛠️ Development
 
 ### Project Structure
@@ -276,8 +145,6 @@ network-cli-assistant/
 │   ├── utils.py            # General utility functions
 │   ├── network/            # Network operations modules
 │   │   ├── __init__.py
-│   │   ├── ssh.py          # SSH command execution
-│   │   ├── acl.py          # ACL generation
 │   │   ├── connectivity.py # Ping and traceroute
 │   │   ├── dns.py          # DNS lookup functions
 │   │   ├── discovery.py    # Host discovery
@@ -351,7 +218,6 @@ Ping and traceroute results include:
 
 ### Secure Operations
 
-- **SSH Security**: Key-based authentication support and secure connection handling
 - **Credential Management**: Environment variable-based configuration without hardcoded secrets
 - **Network Isolation**: Configurable timeouts and connection limits
 - **Audit Logging**: Comprehensive logging of all network operations for security monitoring
