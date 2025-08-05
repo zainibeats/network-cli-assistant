@@ -42,6 +42,8 @@ Network CLI Assistant is a powerful command-line interface that leverages natura
 
 ### Running with Docker (Recommended)
 
+#### Option 1: Build from source
+
 1. Build the container:
 
    ```bash
@@ -51,7 +53,21 @@ Network CLI Assistant is a powerful command-line interface that leverages natura
 2. To run the container and interact with the CLI, use:
 
    ```bash
-   docker compose run --rm app
+   docker compose run --rm network-cli-assistant
+   ```
+
+#### Option 2: Use pre-built image
+
+1. Pull the pre-built image:
+
+   ```bash
+   docker pull skimming124/network-cli-assistant
+   ```
+
+2. To run the container and interact with the CLI, use:
+
+   ```bash
+   docker compose run --rm network-cli-assistant
    ```
 
 ### Running Locally

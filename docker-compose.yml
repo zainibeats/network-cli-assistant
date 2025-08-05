@@ -1,6 +1,12 @@
 services:
-  app:
-    build: .
+  network-cli-assistant:
+
+    # Option 1: Build from source
+    # build: .
+
+    # Option 2: Use pre-built image
+    image: skimming124/network-cli-assistant
+
     container_name: network-cli-assistant
     network_mode: "host"
     dns:
