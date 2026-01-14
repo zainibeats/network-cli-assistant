@@ -2,7 +2,7 @@
 
 Network CLI Assistant is a powerful command-line interface that leverages natural language processing to execute common network administration tasks. It allows you to perform network operations using simple, conversational commands, making network administration more accessible and efficient.
 
-## 🌟 Features
+## Features
 
 - **Natural Language Processing**: Interact with your network using simple English commands powered by Google Gemini API
 - **Comprehensive Network Operations**:
@@ -16,7 +16,7 @@ Network CLI Assistant is a powerful command-line interface that leverages natura
 - **Docker Support**: Consistent environment across all platforms
 - **Modular Architecture**: Clean, maintainable codebase with separated concerns
 
-## 🚀 Quick Start
+## Quick Start
 
 ### Prerequisites
 
@@ -86,7 +86,7 @@ Network CLI Assistant is a powerful command-line interface that leverages natura
    python -m src.main
    ```
 
-## 💡 Usage Examples
+## Usage Examples
 
 Once the application is running, you can use natural language to perform network operations. The AI assistant will interpret your intent and execute the appropriate network functions.
 
@@ -145,7 +145,7 @@ Once the application is running, you can use natural language to perform network
   List all network connections
   ```
 
-## 🛠️ Development
+## Development
 
 ### Project Structure
 
@@ -187,7 +187,7 @@ network-cli-assistant/
 └── requirements.txt        # Python dependencies
 ```
 
-## 🔍 Understanding Output and Results
+## Understanding Output and Results
 
 ### Port Scan Results
 
@@ -223,7 +223,7 @@ Ping and traceroute results include:
 - **Connectivity Assessment**: Clear indicators of network reachability
 - **Error Categorization**: Specific error types (DNS failure, network unreachable, timeout)
 
-## 🔒 Security Features
+## Security Features
 
 ### Input Validation
 
@@ -255,7 +255,7 @@ The modular architecture makes it easy to extend functionality:
 4. **Update Documentation**: Function docstrings automatically become part of AI context
 5. **Write Tests**: Add unit tests following existing patterns
 
-## 🔧 Troubleshooting
+## Troubleshooting
 
 ### Common Issues
 
@@ -282,13 +282,6 @@ The modular architecture makes it easy to extend functionality:
 - Check your internet connection for API access
 - Try rephrasing your command more clearly
 
-### Getting Help
-
-- Check the logs for detailed error information
-- Use verbose mode for additional debugging output
-- Review the example commands and use cases above
-- Ensure all prerequisites are properly installed
-
-## 📝 License
+## License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
