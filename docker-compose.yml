@@ -1,10 +1,10 @@
 services:
   network-cli-assistant:
 
-    # Option 1: Build from source
+    ## Option 1: Build from source
     # build: .
 
-    # Option 2: Use pre-built image
+    ## Option 2: Use pre-built image
     image: skimming124/network-cli-assistant
 
     container_name: network-cli-assistant
