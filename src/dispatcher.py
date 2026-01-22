@@ -113,7 +113,7 @@ def parse_command(user_input: str) -> dict:
     try:
         logger.debug(f"Configuring Gemini AI for command parsing")
         genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
-        model = genai.GenerativeModel('gemini-1.5-flash')
+        model = genai.GenerativeModel('gemini-2.5-flash')
         
         prompt = get_enhanced_prompt()
         full_prompt = prompt + user_input
