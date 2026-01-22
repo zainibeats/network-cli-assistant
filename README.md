@@ -1,6 +1,8 @@
 # Network CLI Assistant
 
-Network CLI Assistant is a powerful command-line interface that leverages natural language processing to execute common network administration tasks. It allows you to perform network operations using simple, conversational commands, making network administration more accessible and efficient.
+> **Note**: This project contains AI-generated code.
+
+Network CLI Assistant is a powerful command-line interface that leverages natural language processing to execute common network administration tasks. It allows you to perform network operations using simple, conversational commands, making network administration more accessible and efficient. 
 
 ## Features
 
