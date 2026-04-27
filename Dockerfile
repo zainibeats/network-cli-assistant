@@ -5,7 +5,9 @@ FROM python:3.13-slim
 WORKDIR /app
 
 # Install system dependencies
-RUN apt-get update && apt-get install -y \
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ca-certificates \
+    iproute2 \
     nmap \
     net-tools \
     iputils-ping \
@@ -15,7 +17,7 @@ RUN apt-get update && apt-get install -y \
 # Copy the requirements file into the container at /app
 COPY requirements.txt .
 
-# Install any needed packages specified in requirements.txt
+# Install Python runtime dependencies
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy the rest of the application's code

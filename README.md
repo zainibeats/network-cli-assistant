@@ -23,7 +23,7 @@ Network CLI Assistant is a powerful command-line interface that leverages natura
 ### Prerequisites
 
 - Docker and Docker Compose installed on your system
-- Google Gemini API key (for natural language processing)
+- A local OpenAI-compatible model endpoint, such as LM Studio or Ollama
 
 ### Installation
 
@@ -40,11 +40,9 @@ Network CLI Assistant is a powerful command-line interface that leverages natura
    cp .env.example .env
    ```
 
-   Edit the `.env` file and add your Google Gemini API key.
+   Edit the `.env` file and set your local model name and endpoint.
 
 ### Running with Docker (Recommended)
-
-#### Option 1: Build from source
 
 1. Build the container:
 
@@ -58,19 +56,9 @@ Network CLI Assistant is a powerful command-line interface that leverages natura
    docker compose run --rm network-cli-assistant
    ```
 
-#### Option 2: Use pre-built image
-
-1. Pull the pre-built image:
-
-   ```bash
-   docker pull skimming124/network-cli-assistant
-   ```
-
-2. To run the container and interact with the CLI, use:
-
-   ```bash
-   docker compose run --rm network-cli-assistant
-   ```
+By default the compose file expects an OpenAI-compatible endpoint at
+`http://127.0.0.1:1234/v1`, which matches common LM Studio defaults when using
+host networking. Ollama users can set `OPENAI_COMPATIBLE_BASE_URL` in `.env`.
 
 ### Running Locally
 

@@ -1,12 +1,6 @@
 services:
   network-cli-assistant:
-
-    ## Option 1: Build from source
-    # build: .
-
-    ## Option 2: Use pre-built image
-    image: skimming124/network-cli-assistant
-
+    build: .
     container_name: network-cli-assistant
     network_mode: "host"
     dns:
@@ -14,5 +8,14 @@ services:
       - 1.1.1.1
     env_file:
       - .env
+    environment:
+      NCA_LLM_PROVIDER: ${NCA_LLM_PROVIDER:-openai-compatible}
+      NCA_LLM_MODEL: ${NCA_LLM_MODEL:-local-model}
+      OPENAI_COMPATIBLE_BASE_URL: ${OPENAI_COMPATIBLE_BASE_URL:-http://127.0.0.1:1234/v1}
+      OPENAI_COMPATIBLE_API_KEY: ${OPENAI_COMPATIBLE_API_KEY:-local}
+    volumes:
+      - ./runtime-context:/app/runtime-context
+      # Example external notes mount:
+      # - ~/Obsidian/Network:/app/runtime-context/notes
     stdin_open: true
     tty: true

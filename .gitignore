@@ -170,9 +170,8 @@ cython_debug/
 # Ruff stuff:
 .ruff_cache/
 
+# Runtime assistant notes/findings
+runtime-context/
+
 # PyPI configuration file
 .pypirc
-
-# Tests
-tests/
-test*
