@@ -7,10 +7,14 @@ WORKDIR /app
 # Install system dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates \
+    dnsutils \
+    docker.io \
     iproute2 \
-    nmap \
-    net-tools \
     iputils-ping \
+    net-tools \
+    nmap \
+    procps \
+    systemd \
     traceroute \
     && rm -rf /var/lib/apt/lists/*
 

@@ -1,4 +1,4 @@
-"""Model provider adapters for command parsing."""
+"""Model provider adapters for command parsing and local agent reasoning."""
 
 import json
 import os
@@ -81,6 +81,60 @@ def parse_with_openai_compatible(full_prompt: str) -> dict:
     return extract_json_payload(content)
 
 
+def chat_with_openai_compatible(system_prompt: str, user_prompt: str, *, temperature: float = 0) -> str:
+    """Send a chat request to an OpenAI-compatible local endpoint."""
+    base_url = (
+        os.getenv("OPENAI_COMPATIBLE_BASE_URL")
+        or os.getenv("NCA_OPENAI_BASE_URL")
+        or DEFAULT_LOCAL_BASE_URL
+    ).rstrip("/")
+    model_name = os.getenv("NCA_LLM_MODEL") or os.getenv("LLM_MODEL") or DEFAULT_LOCAL_MODEL
+    api_key = os.getenv("OPENAI_COMPATIBLE_API_KEY") or os.getenv("NCA_OPENAI_API_KEY") or "local"
+
+    payload = {
+        "model": model_name,
+        "messages": [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_prompt},
+        ],
+        "temperature": temperature,
+    }
+    body = json.dumps(payload).encode("utf-8")
+    headers = {
+        "Content-Type": "application/json",
+        "Authorization": f"Bearer {api_key}",
+    }
+    req = request.Request(
+        f"{base_url}/chat/completions",
+        data=body,
+        headers=headers,
+        method="POST",
+    )
+
+    try:
+        with request.urlopen(req, timeout=120) as response:
+            data = json.loads(response.read().decode("utf-8"))
+    except error.URLError as exc:
+        raise RuntimeError(f"Local model request failed: {exc}") from exc
+
+    return data["choices"][0]["message"]["content"].strip()
+
+
+def chat_with_gemini(system_prompt: str, user_prompt: str, *, temperature: float = 0) -> str:
+    """Send a chat request to Google Gemini."""
+    import google.generativeai as genai
+
+    model_name = os.getenv("NCA_LLM_MODEL") or os.getenv("LLM_MODEL") or DEFAULT_GEMINI_MODEL
+    genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
+    model = genai.GenerativeModel(
+        model_name,
+        generation_config={"temperature": temperature},
+        system_instruction=system_prompt,
+    )
+    response = model.generate_content(user_prompt)
+    return response.text.strip()
+
+
 def parse_with_provider(full_prompt: str) -> dict:
     """Route prompt parsing to the configured model provider."""
     provider = selected_provider()
@@ -89,3 +143,18 @@ def parse_with_provider(full_prompt: str) -> dict:
     if provider in {"openai-compatible", "local", "lmstudio", "ollama"}:
         return parse_with_openai_compatible(full_prompt)
     raise ValueError(f"Unsupported LLM provider: {provider}")
+
+
+def chat_with_provider(system_prompt: str, user_prompt: str, *, temperature: float = 0) -> str:
+    """Route a general chat request to the configured model provider."""
+    provider = selected_provider()
+    if provider == "gemini":
+        return chat_with_gemini(system_prompt, user_prompt, temperature=temperature)
+    if provider in {"openai-compatible", "local", "lmstudio", "ollama"}:
+        return chat_with_openai_compatible(system_prompt, user_prompt, temperature=temperature)
+    raise ValueError(f"Unsupported LLM provider: {provider}")
+
+
+def parse_json_with_provider(system_prompt: str, user_prompt: str) -> dict:
+    """Ask the provider for a JSON object and parse the response."""
+    return extract_json_payload(chat_with_provider(system_prompt, user_prompt, temperature=0))

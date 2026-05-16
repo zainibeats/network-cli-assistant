@@ -9,11 +9,8 @@ and orchestrates the command processing flow.
 
 import argparse
 
-from src import core_functions
-from src.dispatcher import parse_command
-from src.findings import record_finding
+from src.agent import handle_agent_message
 from src.logging_config import initialize_logging
-from src.utils import format_output
 
 
 def parse_args():
@@ -24,6 +21,17 @@ def parse_args():
     parser.add_argument("--no-log-file", action="store_true", help="Disable logging to files")
     parser.add_argument("--log-dir", type=str, help="Custom directory for log files")
     return parser.parse_args()
+
+
+def _confirm_command(command: str, reason: str | None = None) -> bool:
+    """Ask the user before running a command that is not clearly read-only."""
+    print()
+    print("This command is not clearly read-only and needs approval.")
+    if reason:
+        print(f"Reason: {reason}")
+    print(f"Command: {command}")
+    answer = input("Run it? [y/N] ").strip().lower()
+    return answer in {"y", "yes"}
 
 
 def main():
@@ -83,76 +91,12 @@ def main():
                 f"Processing user input: {user_input[:100]}{'...' if len(user_input) > 100 else ''}"
             )
 
-            # 2. Pass the input to the dispatcher to get a structured command.
-            command = parse_command(user_input)
-
-            # Log AI interaction
-            logger.log_ai_interaction(user_input, command, "error" not in command)
-
-            if command.get("status") == "needs_clarification":
-                question = command.get("question", "Please clarify the request.")
-                app_logger.info(f"Command needs clarification: {question}")
-                print(question)
-                continue
-
-            # Handle dispatcher errors
-            if command.get("status") == "error" or "error" in command:
-                error_msg = command.get("message", "Could not understand command")
-                app_logger.warning(f"Command parsing failed: {error_msg}")
-                print(f"Error: {error_msg}")
-                continue
-
-            if not command or "function" not in command:
-                app_logger.warning("Empty or invalid command received from dispatcher")
-                print("Sorry, I could not understand that command. Please try again.")
-                continue
-
-            # 3. Execute the command using the appropriate core function.
-            function_name = command.get("function")
-            function_args = command.get("args", {})
-
-            app_logger.info(
-                f"Executing function: {function_name}",
-                extra={"function": function_name, "function_args": function_args},
-            )
-
             try:
-                func_to_call = getattr(core_functions, function_name)
-
-                # Use operation context for logging
-                with logger.operation_context(
-                    function_name, function_args.get("host") or function_args.get("target")
-                ):
-                    result = func_to_call(**function_args)
-
-                # Log the result (without sensitive data)
-                success = result.get("success", True)
-                if success:
-                    app_logger.info(f"Function {function_name} completed successfully")
-                else:
-                    app_logger.error(
-                        f"Function {function_name} failed: {result.get('error', 'Unknown error')}"
-                    )
-
-                try:
-                    findings_file = record_finding(command, result)
-                    app_logger.debug(f"Recorded finding in {findings_file}")
-                except Exception as e:
-                    app_logger.warning(f"Could not record finding: {e}", exc_info=True)
-
-                # 4. Print the result to the user in a readable format.
-                print(format_output(result))
-
-            except AttributeError:
-                error_msg = f"The command '{function_name}' is not a valid function."
-                app_logger.error(error_msg)
-                print(f"Error: {error_msg}")
-            except TypeError as e:
-                error_msg = f"Error executing '{function_name}': {e}"
-                app_logger.error(error_msg, exc_info=True)
-                print(error_msg)
+                response = handle_agent_message(user_input, approval_callback=_confirm_command)
+                logger.log_ai_interaction(user_input, {"status": "agent_handled"}, True)
+                print(response)
             except Exception as e:
-                error_msg = f"Unexpected error executing '{function_name}': {e}"
+                error_msg = f"Unexpected error handling request: {e}"
                 app_logger.error(error_msg, exc_info=True)
                 print(f"Error: {error_msg}")
 

@@ -15,6 +15,16 @@ services:
       OPENAI_COMPATIBLE_API_KEY: ${OPENAI_COMPATIBLE_API_KEY:-local}
     volumes:
       - ./runtime-context:/app/runtime-context
+      # Host logs are mounted read-only so commands like journalctl, tail, grep,
+      # and find can inspect host logs without giving the container write access.
+      - /var/log:/var/log:ro
+      # Docker socket access lets the assistant inspect local containers with
+      # `docker ps`, `docker logs`, and `docker inspect`. Treat this as highly
+      # privileged: Docker's API is not meaningfully read-only even if the socket
+      # bind mount is marked read-only.
+      - /var/run/docker.sock:/var/run/docker.sock
+      # Optional: uncomment on hosts that use volatile journald storage.
+      # - /run/log/journal:/run/log/journal:ro
       # Example external notes mount:
       # - ~/Obsidian/Network:/app/runtime-context/notes
     stdin_open: true

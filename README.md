@@ -2,11 +2,16 @@
 
 > **Note**: This project contains AI-generated code.
 
-Network CLI Assistant is a powerful command-line interface that leverages natural language processing to execute common network administration tasks. It allows you to perform network operations using simple, conversational commands, making network administration more accessible and efficient. 
+Network CLI Assistant is a local-first terminal agent for homelab administration. It accepts natural language, asks a local or OpenAI-compatible model to plan diagnostic CLI work, runs read-only commands automatically, records compact observations, and summarizes what it found.
+
+The project is intended to sit between a user and their shell. Instead of requiring the user to remember exact commands for logs, services, Docker, network interfaces, ports, and defensive scans, the assistant can choose the next local diagnostic command, inspect the result, and explain what still needs more context.
 
 ## Features
 
-- **Natural Language Processing**: Interact with your network using simple English commands powered by Google Gemini API
+- **Local-First Agent Loop**: Use LM Studio, Ollama, or another OpenAI-compatible endpoint by default
+- **Generated Diagnostic Commands**: The assistant can plan local shell commands for logs, services, Docker, disk, memory, network state, and defensive scans
+- **Safety Policy**: Read-only commands run automatically; commands that are not clearly read-only require explicit terminal approval
+- **No SSH by Default**: First-class support is local-machine and container-focused
 - **Comprehensive Network Operations**:
   - Advanced port scanning with `nmap` (configurable port ranges, specific ports, network discovery)
   - Network connection monitoring with `netstat`
@@ -227,6 +232,14 @@ Ping and traceroute results include:
 - **Credential Management**: Environment variable-based configuration without hardcoded secrets
 - **Network Isolation**: Configurable timeouts and connection limits
 - **Audit Logging**: Comprehensive logging of all network operations for security monitoring
+- **Knowledgebase Memory**: Bounded findings, inventory notes, and recent chat memory are written locally for continuity with smaller models
+
+### Agent Safety Model
+
+- Read-only diagnostics can run without prompting.
+- Mutating commands, shell composition, redirection, inline scripts, SSH, package installs, service restarts, file deletion, and firewall changes require approval or are blocked in safe mode.
+- Vulnerability and port scans are restricted to private/local targets unless the user explicitly confirms an external/public target.
+- Docker is the primary deployment target. Running from source gives the assistant more direct host visibility and should be treated as less isolated.
 
 ### Risk Assessment
 
