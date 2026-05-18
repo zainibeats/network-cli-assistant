@@ -9,7 +9,12 @@ from .policy import command_requires_approval as _command_requires_approval
 from .policy import validate_safe_shell_command
 
 
-def run_bash(command: str, timeout: int = 30, require_safe: bool = True) -> dict:
+def run_bash(
+    command: str,
+    timeout: int = 30,
+    require_safe: bool = True,
+    interactive: bool = False,
+) -> dict:
     """Run a bash command after deterministic policy checks."""
     if require_safe:
         is_allowed, reason = validate_bash_command(command)
@@ -17,16 +22,34 @@ def run_bash(command: str, timeout: int = 30, require_safe: bool = True) -> dict
             return {"success": False, "error": reason, "error_type": "policy_blocked"}
 
     try:
-        completed = subprocess.run(
-            ["bash", "-lc", command],
-            capture_output=True,
-            text=True,
-            check=False,
-            timeout=timeout,
-            env=_safe_env(),
-        )
+        if interactive:
+            completed = subprocess.run(
+                ["bash", "-lc", command],
+                check=False,
+                timeout=timeout,
+                env=_safe_env(),
+            )
+        else:
+            completed = subprocess.run(
+                ["bash", "-lc", command],
+                capture_output=True,
+                text=True,
+                check=False,
+                timeout=timeout,
+                env=_safe_env(),
+            )
     except subprocess.TimeoutExpired:
         return {"success": False, "error": "Bash command timed out", "error_type": "timeout"}
+
+    if interactive:
+        return {
+            "success": completed.returncode == 0,
+            "command": command,
+            "stdout": "",
+            "stderr": "",
+            "exit_code": completed.returncode,
+            "output": "Interactive command completed" if completed.returncode == 0 else "Interactive command failed",
+        }
 
     return {
         "success": completed.returncode == 0,

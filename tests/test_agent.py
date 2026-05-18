@@ -267,7 +267,7 @@ def test_package_install_request_uses_shell_planner(monkeypatch, tmp_path):
             "steps": [
                 {
                     "function": "run_bash",
-                    "args": {"command": "apt install htop"},
+                    "args": {"command": "sudo apt install htop"},
                     "reason": "Install requested package",
                 }
             ],
@@ -285,7 +285,7 @@ def test_package_install_request_uses_shell_planner(monkeypatch, tmp_path):
 
     response = handle_agent_message("install htop")
 
-    assert "apt install htop" in response
+    assert "sudo apt install htop" in response
 
 
 def test_build_shell_agent_plan_requires_external_scan_confirmation(monkeypatch):
@@ -334,7 +334,12 @@ def test_execute_agent_plan_asks_approval_for_non_read_only_bash(monkeypatch):
 
     assert result["agent"] is True
     assert calls == [
-        {"command": "systemctl restart plexmediaserver", "timeout": 30, "require_safe": False}
+        {
+            "command": "systemctl restart plexmediaserver",
+            "timeout": 30,
+            "require_safe": False,
+            "interactive": False,
+        }
     ]
 
 
@@ -354,18 +359,25 @@ def test_execute_agent_plan_asks_approval_for_package_install(monkeypatch):
             "steps": [
                 {
                     "function": "run_bash",
-                    "args": {"command": "apt install htop"},
+                    "args": {"command": "sudo apt install htop"},
                     "reason": "Install requested package",
                 }
             ],
         },
         finding_recorder=lambda _command, _result: None,
         inventory_updater=lambda _command, _result: None,
-        approval_callback=lambda command, reason: command == "apt install htop" and bool(reason),
+        approval_callback=lambda command, reason: command == "sudo apt install htop" and bool(reason),
     )
 
     assert result["agent"] is True
-    assert calls == [{"command": "apt install htop", "timeout": 30, "require_safe": False}]
+    assert calls == [
+        {
+            "command": "sudo apt install htop",
+            "timeout": 30,
+            "require_safe": False,
+            "interactive": True,
+        }
+    ]
 
 
 def test_execute_agent_plan_includes_command_output(monkeypatch):

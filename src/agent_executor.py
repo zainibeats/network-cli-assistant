@@ -227,8 +227,22 @@ def _run_bash_step(args: dict, approval_callback: ApprovalCallback | None = None
             "error_type": "approval_required",
         }
 
-    record_audit_event("command_execute", {"command": command, "approval": "user_approved"})
-    return run_bash(command=command, timeout=timeout, require_safe=False)
+    interactive = _needs_interactive_terminal(command)
+    record_audit_event(
+        "command_execute",
+        {"command": command, "approval": "user_approved", "interactive": interactive},
+    )
+    return run_bash(
+        command=command,
+        timeout=timeout,
+        require_safe=False,
+        interactive=interactive,
+    )
+
+
+def _needs_interactive_terminal(command: str) -> bool:
+    """Return whether an approved command should inherit terminal stdio."""
+    return command.strip().startswith("sudo ")
 
 
 def _review_observations(user_input: str, plan: dict, results: list[dict]) -> dict | None:
