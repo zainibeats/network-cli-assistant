@@ -1,4 +1,4 @@
-from src import agent
+from src import agent, agent_executor, agent_planner
 from src.agent import build_agent_plan, execute_agent_plan, handle_agent_message
 
 
@@ -142,7 +142,7 @@ def test_execute_agent_plan_runs_bash_steps(monkeypatch):
     function_calls = []
 
     monkeypatch.setattr(
-        agent,
+        agent_executor,
         "run_bash",
         lambda **kwargs: bash_calls.append(kwargs) or {"success": True, "stdout": "bash ok"},
     )
@@ -232,7 +232,7 @@ def test_handle_agent_message_does_not_fall_back_to_chat_for_parser_error(monkey
 
 def test_build_shell_agent_plan_uses_model_commands(monkeypatch):
     monkeypatch.setattr(
-        agent,
+        agent_planner,
         "parse_json_with_provider",
         lambda _system, _user: {
             "target": "local-machine",
@@ -242,7 +242,7 @@ def test_build_shell_agent_plan_uses_model_commands(monkeypatch):
             ],
         },
     )
-    monkeypatch.setattr(agent, "load_chat_memory", lambda: "")
+    monkeypatch.setattr(agent_planner, "load_chat_memory", lambda: "")
 
     plan = agent.build_shell_agent_plan("why is plex down?")
 
@@ -256,14 +256,14 @@ def test_build_shell_agent_plan_uses_model_commands(monkeypatch):
 
 def test_build_shell_agent_plan_requires_external_scan_confirmation(monkeypatch):
     monkeypatch.setattr(
-        agent,
+        agent_planner,
         "parse_json_with_provider",
         lambda _system, _user: {
             "target": "scanme.nmap.org",
             "commands": [{"command": "nmap scanme.nmap.org", "reason": "Scan external host"}],
         },
     )
-    monkeypatch.setattr(agent, "load_chat_memory", lambda: "")
+    monkeypatch.setattr(agent_planner, "load_chat_memory", lambda: "")
 
     result = agent.build_shell_agent_plan("scan scanme.nmap.org for vulnerabilities")
 
@@ -274,7 +274,7 @@ def test_build_shell_agent_plan_requires_external_scan_confirmation(monkeypatch)
 def test_execute_agent_plan_asks_approval_for_non_read_only_bash(monkeypatch):
     calls = []
     monkeypatch.setattr(
-        agent,
+        agent_executor,
         "run_bash",
         lambda **kwargs: calls.append(kwargs) or {"success": True, "stdout": "approved"},
     )
@@ -306,7 +306,7 @@ def test_execute_agent_plan_asks_approval_for_non_read_only_bash(monkeypatch):
 
 def test_execute_agent_plan_includes_command_output(monkeypatch):
     monkeypatch.setattr(
-        agent,
+        agent_executor,
         "run_bash",
         lambda **_kwargs: {
             "success": True,
@@ -362,9 +362,9 @@ def test_execute_agent_plan_can_run_model_followup(monkeypatch):
         ]
     )
 
-    monkeypatch.setattr(agent, "parse_json_with_provider", lambda *_args: next(reviews))
+    monkeypatch.setattr(agent_executor, "parse_json_with_provider", lambda *_args: next(reviews))
     monkeypatch.setattr(
-        agent,
+        agent_executor,
         "run_bash",
         lambda command, **_kwargs: calls.append(command)
         or {"success": True, "stdout": f"output for {command}", "exit_code": 0},

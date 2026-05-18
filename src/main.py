@@ -10,7 +10,12 @@ and orchestrates the command processing flow.
 import argparse
 
 from src.agent import handle_agent_message
+from src.formatting.colors import Colors
+from src.knowledgebase import ensure_knowledgebase
 from src.logging_config import initialize_logging
+from src.policy import load_policy
+
+SESSION_APPROVED_COMMANDS: set[str] = set()
 
 
 def parse_args():
@@ -25,12 +30,24 @@ def parse_args():
 
 def _confirm_command(command: str, reason: str | None = None) -> bool:
     """Ask the user before running a command that is not clearly read-only."""
+    if command in SESSION_APPROVED_COMMANDS:
+        return True
+
+    policy = load_policy()
+    allow_session = bool(policy.get("approval", {}).get("allow_session_approval", True))
     print()
-    print("This command is not clearly read-only and needs approval.")
+    print(f"{Colors.YELLOW}{Colors.BOLD}Approval required{Colors.END}")
     if reason:
-        print(f"Reason: {reason}")
-    print(f"Command: {command}")
-    answer = input("Run it? [y/N] ").strip().lower()
+        print(f"{Colors.YELLOW}Reason:{Colors.END} {reason}")
+    print(f"{Colors.CYAN}Command:{Colors.END} {command}")
+    if allow_session:
+        prompt = "Run it? [y]es / [n]o / approve for [s]ession: "
+    else:
+        prompt = "Run it? [y/N] "
+    answer = input(prompt).strip().lower()
+    if allow_session and answer in {"s", "session"}:
+        SESSION_APPROVED_COMMANDS.add(command)
+        return True
     return answer in {"y", "yes"}
 
 
@@ -53,11 +70,14 @@ def main():
         logger_kwargs["log_dir"] = Path(args.log_dir)
 
     logger = initialize_logging(**logger_kwargs)
+    context_root = ensure_knowledgebase()
+    load_policy()
 
     # Clean up old logs on startup
     logger.cleanup_old_logs()
 
-    print("Welcome to the Network CLI Assistant!")
+    print(f"{Colors.BOLD}Network CLI Assistant{Colors.END}")
+    print(f"Runtime context: {context_root}")
     print("Type 'exit' or 'quit' to end the session.")
 
     if args.verbose:
@@ -92,8 +112,11 @@ def main():
             )
 
             try:
+                if args.verbose:
+                    print(f"{Colors.BLUE}agent: planning and running approved local steps...{Colors.END}")
                 response = handle_agent_message(user_input, approval_callback=_confirm_command)
                 logger.log_ai_interaction(user_input, {"status": "agent_handled"}, True)
+                print(f"{Colors.GREEN}assistant>{Colors.END}")
                 print(response)
             except Exception as e:
                 error_msg = f"Unexpected error handling request: {e}"

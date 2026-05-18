@@ -8,6 +8,7 @@ from pathlib import Path
 from .runtime_context import ensure_directory, get_runtime_context_dir
 
 MAX_TURNS = 12
+MAX_CONTEXT_CHARS = 6000
 
 
 def memory_dir(context_dir: Path | None = None) -> Path:
@@ -21,6 +22,26 @@ def load_chat_memory(context_dir: Path | None = None) -> str:
     if not path.exists():
         return ""
     return path.read_text(encoding="utf-8").strip()
+
+
+def load_runtime_memory(context_dir: Path | None = None, limit: int = MAX_CONTEXT_CHARS) -> str:
+    """Load compact user-editable context for small local models."""
+    root = context_dir or get_runtime_context_dir()
+    sections = []
+    for relative in ("notes", "skills", "inventory/hosts", "inventory/networks"):
+        directory = root / relative
+        if not directory.exists():
+            continue
+        for path in sorted(directory.glob("*.md"))[:10]:
+            if path.name == "README.md":
+                continue
+            text = path.read_text(encoding="utf-8").strip()
+            if text:
+                sections.append(f"## {relative}/{path.name}\n\n{text}")
+    content = "\n\n".join(sections)
+    if len(content) <= limit:
+        return content
+    return content[:limit].rstrip() + "\n...[truncated]"
 
 
 def append_chat_turn(

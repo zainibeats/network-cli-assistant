@@ -5,6 +5,7 @@ def test_ensure_knowledgebase_creates_expected_directories(tmp_path):
     root = ensure_knowledgebase(tmp_path)
 
     assert root == tmp_path
+    assert (tmp_path / "audit" / "README.md").exists()
     assert (tmp_path / "inventory" / "hosts" / "README.md").exists()
     assert (tmp_path / "inventory" / "networks" / "README.md").exists()
     assert (tmp_path / "incidents" / "README.md").exists()

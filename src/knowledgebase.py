@@ -12,6 +12,7 @@ from .findings import summarize_result
 from .runtime_context import ensure_directory, get_runtime_context_dir
 
 KB_DIRECTORIES = (
+    "audit",
     "inventory/hosts",
     "inventory/networks",
     "findings",
@@ -136,6 +137,7 @@ def _readme_text(relative_path: str) -> str:
     descriptions = {
         "inventory/hosts": "One bounded Markdown profile per known host.",
         "inventory/networks": "One bounded Markdown profile per known subnet or CIDR.",
+        "audit": "Append-only JSONL audit events for commands, approvals, and agent decisions.",
         "findings": "Daily command observations written automatically by the assistant.",
         "incidents": "Human-maintained incident notes and timelines.",
         "memory": "Bounded recent chat memory for conversational continuity.",
