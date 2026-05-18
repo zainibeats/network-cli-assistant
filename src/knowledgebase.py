@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Any
 
 from .findings import summarize_result
-from .runtime_context import ensure_directory, get_runtime_context_dir
+from .runtime_context import ensure_directory, get_runtime_context_dir, set_private_permissions
 
 KB_DIRECTORIES = (
     "audit",
@@ -28,11 +28,17 @@ def ensure_knowledgebase(context_dir: Path | None = None) -> Path:
     """Create the editable knowledgebase directory structure."""
     root = ensure_directory(context_dir or get_runtime_context_dir())
     for relative_path in KB_DIRECTORIES:
-        directory = ensure_directory(root / relative_path)
+        try:
+            directory = ensure_directory(root / relative_path)
+        except PermissionError:
+            continue
         readme = directory / "README.md"
-        if not readme.exists():
-            readme.write_text(_readme_text(relative_path), encoding="utf-8")
-            readme.chmod(0o600)
+        try:
+            if not readme.exists():
+                readme.write_text(_readme_text(relative_path), encoding="utf-8")
+                set_private_permissions(readme, 0o600)
+        except PermissionError:
+            continue
     return root
 
 
@@ -57,7 +63,7 @@ def update_inventory(
         _render_inventory_document(target, now, admin_notes, recent_observations),
         encoding="utf-8",
     )
-    inventory_file.chmod(0o600)
+    set_private_permissions(inventory_file, 0o600)
     return inventory_file
 
 

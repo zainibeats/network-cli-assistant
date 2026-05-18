@@ -7,7 +7,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from .runtime_context import ensure_directory, get_runtime_context_dir
+from .runtime_context import ensure_directory, get_runtime_context_dir, set_private_permissions
 
 
 def record_audit_event(
@@ -17,7 +17,10 @@ def record_audit_event(
 ) -> Path:
     """Append one structured audit event to today's JSONL log."""
     root = context_dir or get_runtime_context_dir()
-    audit_dir = ensure_directory(root / "audit")
+    try:
+        audit_dir = ensure_directory(root / "audit")
+    except PermissionError:
+        return root / "audit"
     now = datetime.now(timezone.utc)
     audit_file = audit_dir / f"{now.date().isoformat()}.jsonl"
     event = {
@@ -25,9 +28,12 @@ def record_audit_event(
         "type": event_type,
         "details": _redact(details),
     }
-    with audit_file.open("a", encoding="utf-8") as handle:
-        handle.write(json.dumps(event, sort_keys=True, separators=(",", ":")) + "\n")
-    audit_file.chmod(0o600)
+    try:
+        with audit_file.open("a", encoding="utf-8") as handle:
+            handle.write(json.dumps(event, sort_keys=True, separators=(",", ":")) + "\n")
+    except PermissionError:
+        return audit_file
+    set_private_permissions(audit_file, 0o600)
     return audit_file
 
 

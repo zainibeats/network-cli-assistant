@@ -8,7 +8,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from .runtime_context import ensure_directory, get_runtime_context_dir
+from .runtime_context import ensure_directory, get_runtime_context_dir, set_private_permissions
 
 DEFAULT_POLICY: dict[str, Any] = {
     "version": 1,
@@ -181,7 +181,7 @@ def write_default_policy(context_dir: Path | None = None) -> dict[str, Any]:
     """Write the default policy to runtime context."""
     path = policy_path(context_dir)
     path.write_text(json.dumps(DEFAULT_POLICY, indent=2, sort_keys=True) + "\n", encoding="utf-8")
-    path.chmod(0o600)
+    set_private_permissions(path, 0o600)
     return DEFAULT_POLICY.copy()
 
 

@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from pathlib import Path
 
-from .runtime_context import ensure_directory, get_runtime_context_dir
+from .runtime_context import ensure_directory, get_runtime_context_dir, set_private_permissions
 
 MAX_TURNS = 12
 MAX_CONTEXT_CHARS = 6000
@@ -64,7 +64,7 @@ def append_chat_turn(
         )
     )
     path.write_text("\n".join(turns[-MAX_TURNS:]), encoding="utf-8")
-    path.chmod(0o600)
+    set_private_permissions(path, 0o600)
     return path
 
 

@@ -254,6 +254,40 @@ def test_build_shell_agent_plan_uses_model_commands(monkeypatch):
     ]
 
 
+def test_package_install_request_uses_shell_planner(monkeypatch, tmp_path):
+    monkeypatch.setattr(agent, "append_chat_turn", lambda *_args, **_kwargs: tmp_path)
+    monkeypatch.setattr(agent, "build_agent_plan", lambda _user_input: None)
+    monkeypatch.setattr(
+        agent,
+        "build_shell_agent_plan",
+        lambda _user_input: {
+            "status": "agent_plan",
+            "mode": "power",
+            "target": "local-machine",
+            "steps": [
+                {
+                    "function": "run_bash",
+                    "args": {"command": "apt install htop"},
+                    "reason": "Install requested package",
+                }
+            ],
+        },
+    )
+    monkeypatch.setattr(
+        agent,
+        "execute_agent_plan",
+        lambda plan, **_kwargs: {
+            "success": True,
+            "agent": True,
+            "output": plan["steps"][0]["args"]["command"],
+        },
+    )
+
+    response = handle_agent_message("install htop")
+
+    assert "apt install htop" in response
+
+
 def test_build_shell_agent_plan_requires_external_scan_confirmation(monkeypatch):
     monkeypatch.setattr(
         agent_planner,
@@ -302,6 +336,36 @@ def test_execute_agent_plan_asks_approval_for_non_read_only_bash(monkeypatch):
     assert calls == [
         {"command": "systemctl restart plexmediaserver", "timeout": 30, "require_safe": False}
     ]
+
+
+def test_execute_agent_plan_asks_approval_for_package_install(monkeypatch):
+    calls = []
+    monkeypatch.setattr(
+        agent_executor,
+        "run_bash",
+        lambda **kwargs: calls.append(kwargs) or {"success": True, "stdout": "installed"},
+    )
+
+    result = execute_agent_plan(
+        {
+            "status": "agent_plan",
+            "mode": "power",
+            "target": "local-machine",
+            "steps": [
+                {
+                    "function": "run_bash",
+                    "args": {"command": "apt install htop"},
+                    "reason": "Install requested package",
+                }
+            ],
+        },
+        finding_recorder=lambda _command, _result: None,
+        inventory_updater=lambda _command, _result: None,
+        approval_callback=lambda command, reason: command == "apt install htop" and bool(reason),
+    )
+
+    assert result["agent"] is True
+    assert calls == [{"command": "apt install htop", "timeout": 30, "require_safe": False}]
 
 
 def test_execute_agent_plan_includes_command_output(monkeypatch):

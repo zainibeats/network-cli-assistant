@@ -40,8 +40,8 @@ Schema:
 
 Rules:
 - Prefer read-only diagnostic commands that inspect state: systemctl status/show/is-active, journalctl reads, docker ps/logs/inspect, ss, ip, df, free, uptime, ps, top batch snapshots, ls, find, grep, awk, sed reads, cat/head/tail, bluetoothctl show/devices/info.
+- If the user explicitly asks to install, update, remove, edit, restart, stop, start, or otherwise change local machine state, return the single direct local command needed. The executor will ask the user for approval before running it.
 - No SSH.
-- Do not install packages, change services, edit files, remove files, restart services, stop containers, or alter firewall rules.
 - Do not use sudo.
 - Use one command per plan item. Avoid shell chains, pipes, redirection, command substitution, and inline scripts.
 - Keep plans to 3-6 commands.

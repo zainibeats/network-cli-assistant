@@ -13,6 +13,19 @@ def test_ensure_knowledgebase_creates_expected_directories(tmp_path):
     assert (tmp_path / "skills" / "README.md").exists()
 
 
+def test_ensure_knowledgebase_skips_inaccessible_readme(monkeypatch, tmp_path):
+    original_exists = type(tmp_path).exists
+
+    def fake_exists(path):
+        if path.name == "README.md" and path.parent.name == "audit":
+            raise PermissionError("permission denied")
+        return original_exists(path)
+
+    monkeypatch.setattr("pathlib.Path.exists", fake_exists)
+
+    assert ensure_knowledgebase(tmp_path) == tmp_path
+
+
 def test_update_inventory_writes_bounded_host_profile(tmp_path):
     command = {"function": "ping", "args": {"host": "192.168.1.10"}}
     result = {"success": True, "stdout": "PING 192.168.1.10"}

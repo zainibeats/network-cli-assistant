@@ -7,7 +7,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from .runtime_context import ensure_directory, get_runtime_context_dir
+from .runtime_context import ensure_directory, get_runtime_context_dir, set_private_permissions
 
 MAX_DETAIL_CHARS = 1600
 
@@ -32,7 +32,7 @@ def record_finding(
     with findings_file.open("a", encoding="utf-8") as handle:
         handle.write(entry)
 
-    findings_file.chmod(0o600)
+    set_private_permissions(findings_file, 0o600)
     return findings_file
 
 
