@@ -103,6 +103,8 @@ def display_command(plan_step: dict) -> str:
     """Return the terminal-style display string for a plan step."""
     if plan_step["function"] == "run_bash":
         return f"$ {plan_step.get('args', {}).get('command', '')}"
+    if plan_step["function"] == "web_search":
+        return f"web_search {plan_step.get('args', {}).get('query', '')}"
     args = plan_step.get("args", {})
     arg_text = " ".join(f"{key}={value}" for key, value in args.items())
     return f"{plan_step['function']} {arg_text}".strip()
@@ -186,17 +188,24 @@ def _execute_agent_steps(
         try:
             if function_name == "run_bash":
                 result = _run_bash_step(command["args"], approval_callback=approval_callback)
+            elif function_name == "web_search":
+                result = _run_web_search_step(
+                    command["args"],
+                    resolver=resolver,
+                    approval_callback=approval_callback,
+                )
             else:
                 result = resolver(function_name)(**command["args"])
         except Exception as exc:
             logger.exception("Agent step failed", extra={"function": function_name})
             result = {"success": False, "error": str(exc), "error_type": "agent_step_failed"}
 
-        try:
-            finding_recorder(command, result)
-            inventory_updater(command, result)
-        except Exception:
-            logger.warning("Could not persist agent observation", exc_info=True)
+        if function_name != "web_search":
+            try:
+                finding_recorder(command, result)
+                inventory_updater(command, result)
+            except Exception:
+                logger.warning("Could not persist agent observation", exc_info=True)
 
         results.append({"step": plan_step, "result": result})
 
@@ -240,6 +249,34 @@ def _run_bash_step(args: dict, approval_callback: ApprovalCallback | None = None
     )
 
 
+def _run_web_search_step(
+    args: dict,
+    *,
+    resolver: Callable[[str], Callable],
+    approval_callback: ApprovalCallback | None = None,
+) -> dict:
+    query = str(args.get("query", "")).strip()
+    if not query:
+        return {"success": False, "error": "Search query cannot be empty", "error_type": "invalid_search"}
+
+    reason = f"Web search can reveal information outside the local machine. Query: {query}"
+    if approval_callback is None:
+        record_audit_event("web_search_blocked", {"query_preview": query[:120]})
+        return {"success": False, "error": reason, "error_type": "approval_required"}
+
+    approved = approval_callback("web_search", reason)
+    record_audit_event("web_search_approval", {"query_preview": query[:120], "approved": approved})
+    if not approved:
+        return {
+            "success": False,
+            "error": "Web search was not approved",
+            "error_type": "approval_required",
+        }
+
+    record_audit_event("web_search_execute", {"query_preview": query[:120]})
+    return resolver("web_search")(**args)
+
+
 def _needs_interactive_terminal(command: str) -> bool:
     """Return whether an approved command should inherit terminal stdio."""
     return command.strip().startswith("sudo ")
@@ -266,11 +303,22 @@ def _review_observations(user_input: str, plan: dict, results: list[dict]) -> di
 
 def _steps_from_review(review: dict, user_input: str) -> list[dict]:
     """Convert model-requested follow-up commands into executable agent steps."""
+    searches = review.get("searches")
     commands = review.get("commands")
-    if not isinstance(commands, list):
-        return []
 
     steps = []
+    if isinstance(searches, list):
+        for item in searches[:2]:
+            if not isinstance(item, dict):
+                continue
+            query = str(item.get("query", "")).strip()
+            reason = str(item.get("reason") or "Research current online information")
+            if query:
+                steps.append(step("web_search", {"query": query, "max_results": 5}, reason))
+
+    if not isinstance(commands, list):
+        return steps
+
     for item in commands[:4]:
         if not isinstance(item, dict):
             continue
@@ -310,6 +358,14 @@ def _result_output_text(result: dict) -> str:
         value = result.get(key)
         if isinstance(value, str) and value.strip():
             return value.strip()
+    if result.get("results"):
+        lines = []
+        for index, item in enumerate(result["results"], start=1):
+            lines.append(f"{index}. {item.get('title') or item.get('url')}")
+            lines.append(f"   URL: {item.get('url')}")
+            if item.get("snippet"):
+                lines.append(f"   Snippet: {item.get('snippet')}")
+        return "\n".join(lines)
     if result.get("ports_found"):
         lines = []
         for port in result["ports_found"]:

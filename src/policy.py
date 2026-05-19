@@ -45,6 +45,7 @@ DEFAULT_POLICY: dict[str, Any] = {
         "tee",
         "touch",
         "ufw",
+        "web_search",
         "wget",
     ],
 }

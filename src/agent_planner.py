@@ -86,7 +86,7 @@ READ_ONLY_FUNCTIONS = frozenset(
         "run_netstat",
     }
 )
-AGENT_FUNCTIONS = READ_ONLY_FUNCTIONS | {"run_bash"}
+AGENT_FUNCTIONS = READ_ONLY_FUNCTIONS | {"run_bash", "web_search"}
 TARGET_PATTERN = r"([a-zA-Z0-9][a-zA-Z0-9.-]*(?:/\d{1,2})?)"
 LOCALHOST_TERMS = ("localhost", "local host", "this host", "this machine", "local machine")
 SECURITY_TERMS = ("vulnerab", "security", "exposed", "open port", "listening", "attack surface")
@@ -126,6 +126,15 @@ SHELL_PLANNER_TERMS = (
     "why",
 )
 SCAN_COMMANDS = {"masscan", "nmap", "nikto"}
+WEB_RESEARCH_TERMS = (
+    "documentation",
+    "docs",
+    "latest",
+    "most recent",
+    "online",
+    "search",
+    "web",
+)
 
 
 def build_agent_plan(user_input: str) -> dict | None:
@@ -139,6 +148,13 @@ def build_agent_plan(user_input: str) -> dict | None:
 
     if _is_log_review_request(text):
         return _agent_plan("safe", "local-logs", _local_log_steps())
+
+    if _is_web_research_request(text):
+        return _agent_plan(
+            "power",
+            "web",
+            [step("web_search", {"query": user_input.strip(), "max_results": 5}, "Research current online information")],
+        )
 
     if not any(trigger in text for trigger in AGENT_TRIGGERS):
         return None
@@ -196,10 +212,23 @@ def build_shell_agent_plan(user_input: str) -> dict | None:
         return None
 
     commands = plan.get("commands")
-    if not isinstance(commands, list) or not commands:
+    searches = plan.get("searches")
+    if not isinstance(commands, list):
+        commands = []
+    if not isinstance(searches, list):
+        searches = []
+    if not commands and not searches:
         return None
 
     steps = []
+    for item in searches[:2]:
+        if not isinstance(item, dict):
+            continue
+        query = str(item.get("query", "")).strip()
+        reason = str(item.get("reason") or "Research current online information")
+        if query:
+            steps.append(step("web_search", {"query": query, "max_results": 5}, reason))
+
     for item in commands[:6]:
         if not isinstance(item, dict):
             continue
@@ -268,7 +297,40 @@ def as_agent_plan(command: dict) -> dict:
             ],
         )
 
+    if command.get("status") == "ready" and function_name == "web_search":
+        return _agent_plan(
+            "power",
+            "web",
+            [
+                step(
+                    function_name,
+                    command.get("args", {}),
+                    "Research current online information",
+                )
+            ],
+        )
+
     return command
+
+
+def _is_web_research_request(text: str) -> bool:
+    if not any(term in text for term in WEB_RESEARCH_TERMS):
+        return False
+    return any(
+        term in text
+        for term in (
+            "compose",
+            "docker",
+            "install",
+            "setup",
+            "set up",
+            "configure",
+            "documentation",
+            "docs",
+            "search",
+            "online",
+        )
+    )
 
 
 def external_scan_reason(command: str, user_input: str) -> str | None:

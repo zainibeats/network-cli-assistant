@@ -470,3 +470,85 @@ def test_execute_agent_plan_can_run_model_followup(monkeypatch):
         "journalctl -u plexmediaserver -n 50 --no-pager",
     ]
     assert "Plex is listening" in result["output"]
+
+
+def test_web_research_request_builds_search_plan():
+    plan = build_agent_plan("find the latest docs for installing jellyfin with docker compose")
+
+    assert plan["status"] == "agent_plan"
+    assert plan["mode"] == "power"
+    assert plan["steps"][0]["function"] == "web_search"
+    assert "jellyfin" in plan["steps"][0]["args"]["query"]
+
+
+def test_execute_agent_plan_requires_approval_for_web_search():
+    calls = []
+
+    def fake_resolver(name):
+        def fake_function(**kwargs):
+            calls.append((name, kwargs))
+            return {
+                "success": True,
+                "results": [{"title": "Docs", "url": "https://example.com", "snippet": "Current docs"}],
+                "output": "1. Docs\n   URL: https://example.com",
+            }
+
+        return fake_function
+
+    result = execute_agent_plan(
+        {
+            "status": "agent_plan",
+            "mode": "power",
+            "target": "web",
+            "steps": [
+                {
+                    "function": "web_search",
+                    "args": {"query": "jellyfin docker compose", "max_results": 5},
+                    "reason": "Find current docs",
+                }
+            ],
+        },
+        function_resolver=fake_resolver,
+        finding_recorder=lambda _command, _result: (_ for _ in ()).throw(AssertionError("do not persist search")),
+        inventory_updater=lambda _command, _result: (_ for _ in ()).throw(AssertionError("do not persist search")),
+        approval_callback=lambda command, reason: command == "web_search" and "jellyfin" in reason,
+    )
+
+    assert calls == [("web_search", {"query": "jellyfin docker compose", "max_results": 5})]
+    assert "https://example.com" in result["output"]
+
+
+def test_execute_agent_plan_continues_after_denied_web_search(monkeypatch):
+    bash_calls = []
+    monkeypatch.setattr(
+        agent_executor,
+        "run_bash",
+        lambda **kwargs: bash_calls.append(kwargs["command"]) or {"success": True, "stdout": "local ok"},
+    )
+
+    result = execute_agent_plan(
+        {
+            "status": "agent_plan",
+            "mode": "power",
+            "target": "local-machine",
+            "steps": [
+                {
+                    "function": "web_search",
+                    "args": {"query": "jellyfin docker compose"},
+                    "reason": "Find current docs",
+                },
+                {
+                    "function": "run_bash",
+                    "args": {"command": "docker ps"},
+                    "reason": "Inspect local containers",
+                },
+            ],
+        },
+        finding_recorder=lambda _command, _result: None,
+        inventory_updater=lambda _command, _result: None,
+        approval_callback=lambda _command, _reason: False,
+    )
+
+    assert bash_calls == ["docker ps"]
+    assert "Web search was not approved" in result["output"]
+    assert "$ docker ps" in result["output"]

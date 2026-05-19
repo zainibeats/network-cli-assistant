@@ -1,290 +1,181 @@
 # Network CLI Assistant
 
-> **Note**: This project contains AI-generated code.
+> This project contains AI-generated code.
 
-Network CLI Assistant is a local-first terminal agent for homelab administration. It accepts natural language, asks a local or OpenAI-compatible model to plan diagnostic CLI work, runs read-only commands automatically, records compact observations, and summarizes what it found.
+Network CLI Assistant is a local-first terminal agent for homelab and host administration. It accepts natural language, asks a configured model to plan small tool steps, runs approved diagnostics, records compact local observations, and summarizes what it found.
 
-The project is intended to sit between a user and their shell. Instead of requiring the user to remember exact commands for logs, services, Docker, network interfaces, ports, and defensive scans, the assistant can choose the next local diagnostic command, inspect the result, and explain what still needs more context.
+The assistant is intentionally minimal. It does not use browser automation, SSH by default, or broad autonomous workflows. It focuses on local shell diagnostics, network checks, Docker/container inspection, optional approved web search, and explicit approval before risky actions.
 
 ## Features
 
-- **Local-First Agent Loop**: Use LM Studio, Ollama, or another OpenAI-compatible endpoint by default
-- **Generated Diagnostic Commands**: The assistant can plan local shell commands for logs, services, Docker, disk, memory, network state, and defensive scans
-- **Safety Policy**: Read-only commands run automatically; commands that are not clearly read-only require explicit terminal approval
-- **No SSH by Default**: First-class support is local-machine and container-focused
-- **Comprehensive Network Operations**:
-  - Advanced port scanning with `nmap` (configurable port ranges, specific ports, network discovery)
-  - Network connection monitoring with `netstat`
-  - Ping and traceroute diagnostics with detailed analysis
-  - Forward and reverse DNS lookups
-  - Host discovery and network scanning
-- **Enhanced Output**: Clear, educational formatting with security risk assessments and recommendations
-- **Robust Error Handling**: Comprehensive validation and helpful error messages
-- **Docker Support**: Consistent environment across all platforms
-- **Modular Architecture**: Clean, maintainable codebase with separated concerns
+- Local-first agent loop with OpenAI-compatible endpoints by default, plus optional Gemini support.
+- Deterministic and model-assisted planning for network, service, Docker, logs, disk, memory, and process diagnostics.
+- Safe-mode shell policy: clearly read-only commands can run automatically; risky or mutating commands require terminal approval.
+- Optional web search through SearXNG or Brave Search, treated as a risky action that can be approved once or for the session.
+- Runtime context in plain Markdown/JSONL for findings, inventory, audit logs, recent memory, notes, incidents, and skills.
+- Docker-first runtime with host networking, optional host log access, and Docker socket access for container workflows.
 
-## Quick Start
+## Requirements
 
-### Prerequisites
+- Docker and Docker Compose for the recommended runtime.
+- Python 3.12+ for running directly from source. The Dockerfile uses Python 3.13.
+- A local or remote OpenAI-compatible model endpoint, such as LM Studio or Ollama.
+- Optional: a local SearXNG instance at `http://127.0.0.1:8080/search`.
+- Optional: a Brave Search API key.
 
-- Docker and Docker Compose installed on your system
-- A local OpenAI-compatible model endpoint, such as LM Studio or Ollama
+## Configuration
 
-### Installation
+Copy the example environment file:
 
-1. Clone the repository:
+```bash
+cp .env.example .env
+```
 
-   ```bash
-   git clone https://github.com/zainibeats/network-cli-assistant
-   cd network-cli-assistant
-   ```
+Common settings:
 
-2. Copy the example environment file and add your API key:
+```env
+NCA_LLM_PROVIDER=openai-compatible
+NCA_LLM_MODEL=local-model-name
+OPENAI_COMPATIBLE_BASE_URL=http://127.0.0.1:1234/v1
+OPENAI_COMPATIBLE_API_KEY=local
+NCA_RUNTIME_CONTEXT_DIR=runtime-context
+```
 
-   ```bash
-   cp .env.example .env
-   ```
+Optional web search:
 
-   Edit the `.env` file and set your local model name and endpoint.
+```env
+NCA_SEARCH_PROVIDER=searxng
+NCA_SEARXNG_URL=http://127.0.0.1:8080/search
+```
 
-### Running with Docker (Recommended)
+For Brave Search:
 
-1. Build the container:
+```env
+NCA_SEARCH_PROVIDER=brave
+BRAVE_SEARCH_API_KEY=YOUR_API_KEY_HERE
+```
 
-   ```bash
-   docker compose build
-   ```
+Secrets belong in `.env` or the host environment. Do not hard-code keys in source files.
 
-2. To run the container and interact with the CLI, use:
+## Running
 
-   ```bash
-   docker compose run --rm network-cli-assistant
-   ```
+Docker is the recommended path:
 
-By default the compose file expects an OpenAI-compatible endpoint at
-`http://127.0.0.1:1234/v1`, which matches common LM Studio defaults when using
-host networking. Ollama users can set `OPENAI_COMPATIBLE_BASE_URL` in `.env`.
+```bash
+docker compose build
+docker compose run --rm network-cli-assistant
+```
 
-### Running Locally
+Run from source when you want direct host visibility:
 
-1. Install Python 3.8+ if not already installed
+```bash
+pip install -r requirements.txt
+python -m src.main
+```
 
-2. Install dependencies:
-
-   ```bash
-   pip install -r requirements.txt
-   ```
-
-3. Run the application:
-
-   ```bash
-   python -m src.main
-   ```
+The Docker Compose service uses host networking so the default LM Studio/SearXNG URLs on `127.0.0.1` can work from the container on Linux. The compose file also mounts `./runtime-context` for assistant-owned notes and `/var/log` read-only for log inspection. It mounts the Docker socket for container inspection and approved container operations; treat that socket as highly privileged.
 
 ## Usage Examples
 
-Once the application is running, you can use natural language to perform network operations. The AI assistant will interpret your intent and execute the appropriate network functions.
+Network diagnostics:
 
-### Basic Network Diagnostics
+```text
+ping 192.168.1.1
+troubleshoot github
+scan ports on 192.168.1.10
+discover hosts on 192.168.1.0/24
+what network is this machine on?
+```
 
-- **Ping Testing**:
-  ```text
-  Ping google.com
-  Test connectivity to 192.168.1.1
-  Check if server.example.com is reachable
-  ```
+Local host and container checks:
 
-- **Traceroute Analysis**:
-  ```text
-  Trace route to google
-  Show me the path to 8.8.8.8
-  Traceroute to my server
-  ```
+```text
+why is plex down?
+check docker containers
+parse through logs for errors
+bash docker ps
+bash systemctl status nginx
+```
 
-- **DNS Lookups**:
-  ```text
-  What's the IP for google?
-  Reverse lookup 8.8.8.8
-  DNS lookup for example.com
-  ```
+Current documentation lookup:
 
-### Port Scanning and Discovery
+```text
+find the latest docs for installing jellyfin with docker compose
+search online for the current traefik docker compose labels
+```
 
-- **Basic Port Scanning**:
-  ```text
-  Scan ports on 192.168.1.1
-  Check open ports on server.example.com
-  Nmap scan of 10.0.0.1
-  ```
+When a request needs current external information, the agent can plan a `web_search` step. The CLI asks for approval before running the search. If you deny it, the agent records that step as failed and continues with any remaining local steps.
 
-- **Advanced Port Scanning**:
-  ```text
-  Scan top 100 ports on 192.168.1.1
-  Check ports 80,443,22 on example.com
-  Scan port range 1-1000 on 10.0.0.1
-  ```
+## Safety Model
 
-- **Network Discovery**:
-  ```text
-  Discover hosts on 192.168.1.0/24
-  Find active hosts in my network
-  Scan network 10.0.0.0/24 for hosts
-  ```
+- Read-only diagnostics can run without prompting when they pass the safe shell validator.
+- Risky commands require approval, including `sudo`, package managers, Docker mutations, service changes, file writes, shell chains, redirection, inline scripts, and `web_search`.
+- SSH and SCP are blocked by default.
+- Vulnerability and port scans are limited to private/local targets unless the user explicitly confirms an external/public target.
+- Search results are only used inside the current agent run. They are not written to findings or inventory.
+- Audit events are written locally under `runtime-context/audit`.
 
-### System Monitoring
+## Runtime Context
 
-- **Local Port Monitoring**:
-  ```text
-  Show me all listening ports
-  What ports are open locally?
-  List all network connections
-  ```
+At startup the assistant creates this data-only structure under `NCA_RUNTIME_CONTEXT_DIR`:
+
+```text
+runtime-context/
+├── audit/              # JSONL audit events
+├── findings/           # Daily command observations
+├── incidents/          # Human-maintained incident notes
+├── inventory/
+│   ├── hosts/          # Bounded per-host profiles
+│   └── networks/       # Bounded per-network profiles
+├── memory/             # Recent chat memory
+├── notes/              # Human-maintained notes
+└── skills/             # Human-maintained procedures/playbooks
+```
+
+These files are plain Markdown or JSONL. The assistant writes compact observations and preserves human-maintained inventory notes where supported.
+
+## Project Layout
+
+```text
+src/
+├── agent.py             # Interactive agent facade
+├── agent_executor.py    # Executes planned steps and reviews observations
+├── agent_planner.py     # Deterministic and model-assisted planning
+├── agent_prompts.py     # Planner and observer prompts
+├── bash_tool.py         # Policy-checked shell execution
+├── core_functions.py    # Public tool exports
+├── dispatcher.py        # Single-function command parser path
+├── findings.py          # Findings writer and result summaries
+├── knowledgebase.py     # Runtime context and inventory updates
+├── llm_providers.py     # OpenAI-compatible and Gemini adapters
+├── policy.py            # Editable command approval policy
+├── search.py            # SearXNG and Brave Search providers
+├── network/             # Ping, traceroute, DNS, discovery, scans
+├── validation/          # Input and network target validation
+├── formatting/          # Terminal output helpers
+└── error_handling/      # Error helpers
+```
+
+Tests live in `tests/`.
 
 ## Development
 
-### Project Structure
+Run the test suite:
 
-```text
-network-cli-assistant/
-├── src/
-│   ├── __init__.py
-│   ├── main.py              # Main application entry point
-│   ├── core_functions.py    # Compatibility layer for network functions
-│   ├── dispatcher.py        # AI-powered command dispatching
-│   ├── config.py           # Configuration settings
-│   ├── logging_config.py   # Logging configuration
-│   ├── utils.py            # General utility functions
-│   ├── network/            # Network operations modules
-│   │   ├── __init__.py
-│   │   ├── connectivity.py # Ping and traceroute
-│   │   ├── dns.py          # DNS lookup functions
-│   │   ├── discovery.py    # Host discovery
-│   │   ├── scanning.py     # Port scanning with nmap/netstat
-│   │   └── analysis.py     # Result analysis and interpretation
-│   ├── validation/         # Input validation modules
-│   │   ├── __init__.py
-│   │   ├── network.py      # Network-specific validation
-│   │   └── input.py        # General input validation
-│   ├── formatting/         # Output formatting modules
-│   │   ├── __init__.py
-│   │   ├── output.py       # Output formatting and display
-│   │   └── colors.py       # Color constants and terminal formatting
-│   └── error_handling/     # Error handling modules
-│       ├── __init__.py
-│       ├── network.py      # Network error handling
-│       └── common.py       # Common error handling utilities
-├── tests/                  # Unit and integration tests
-├── docs/                   # Documentation and AI context
-├── .kiro/                  # Kiro IDE configuration and specs
-├── .env.example            # Example environment variables
-├── docker-compose.yml      # Docker Compose configuration
-├── Dockerfile              # Docker configuration
-└── requirements.txt        # Python dependencies
+```bash
+pytest -p no:cacheprovider
 ```
 
-## Understanding Output and Results
+The `-p no:cacheprovider` flag avoids pytest cache writes in restricted workspaces.
 
-### Port Scan Results
+When adding a new tool:
 
-The tool provides detailed analysis of port scan results including:
-
-- **Security Risk Assessment**: Each open port is categorized as Critical, High, Medium, or Low risk
-- **Service Identification**: Automatic detection of running services and versions
-- **Security Recommendations**: Specific advice for securing each discovered service
-- **Network Summary**: For network scans, organized results by host with risk indicators
-
-Example output interpretation:
-```text
-Host 192.168.1.100:
-  • Port 22 (ssh OpenSSH 8.0) - MEDIUM RISK
-    Recommendations: Use key-based authentication, disable root login, change default port
-  • Port 3389 (ms-wbt-server) - HIGH RISK  
-    Recommendations: Use Network Level Authentication, restrict access by IP, use strong passwords
-```
-
-### DNS Lookup Results
-
-DNS lookups provide both forward and reverse resolution:
-- **Forward Lookup**: Hostname to IP address resolution
-- **Reverse Lookup**: IP address to hostname resolution  
-- **Consistency Checking**: Verification that forward and reverse lookups match
-- **Error Analysis**: Clear explanations when DNS resolution fails
-
-### Network Diagnostics
-
-Ping and traceroute results include:
-- **Response Time Analysis**: RTT measurements and packet loss statistics
-- **Network Path Visualization**: Hop-by-hop routing information
-- **Connectivity Assessment**: Clear indicators of network reachability
-- **Error Categorization**: Specific error types (DNS failure, network unreachable, timeout)
-
-## Security Features
-
-### Input Validation
-
-- **IP Address Validation**: Comprehensive validation of IPv4 addresses and CIDR notation
-- **Hostname Validation**: DNS-compliant hostname checking with helpful error messages
-- **Command Sanitization**: Protection against command injection attacks
-- **Parameter Validation**: Type checking and range validation for all function parameters
-
-### Secure Operations
-
-- **Credential Management**: Environment variable-based configuration without hardcoded secrets
-- **Network Isolation**: Configurable timeouts and connection limits
-- **Audit Logging**: Comprehensive logging of all network operations for security monitoring
-- **Knowledgebase Memory**: Bounded findings, inventory notes, and recent chat memory are written locally for continuity with smaller models
-
-### Agent Safety Model
-
-- Read-only diagnostics can run without prompting.
-- Mutating commands, shell composition, redirection, inline scripts, SSH, package installs, service restarts, file deletion, and firewall changes require approval or are blocked in safe mode.
-- Vulnerability and port scans are restricted to private/local targets unless the user explicitly confirms an external/public target.
-- Docker is the primary deployment target. Running from source gives the assistant more direct host visibility and should be treated as less isolated.
-
-### Risk Assessment
-
-- **Port Security Analysis**: Automatic categorization of security risks for discovered services
-- **Vulnerability Identification**: Recognition of commonly exploited services and configurations
-- **Remediation Guidance**: Specific recommendations for securing network services
-- **Compliance Support**: Output suitable for security audits and compliance reporting
-
-### Adding New Commands
-
-The modular architecture makes it easy to extend functionality:
-
-1. **Add Network Function**: Create new function in appropriate `src/network/` module
-2. **Follow Interface Pattern**: Use standard return format with success/error handling
-3. **Add Validation**: Include input validation using `src/validation/` modules
-4. **Update Documentation**: Function docstrings automatically become part of AI context
-5. **Write Tests**: Add unit tests following existing patterns
-
-## Troubleshooting
-
-### Common Issues
-
-**"Command not found" errors**:
-- Ensure `nmap`, `ping`, `traceroute`, and `netstat` are installed on your system
-- For Docker users, these tools are included in the container
-
-**"Permission denied" errors**:
-- Some network operations require elevated privileges
-- Run with `sudo` if needed, or use Docker which handles permissions
-
-**"DNS resolution failed" errors**:
-- Check your network connection and DNS configuration
-- Verify the hostname is correct and accessible
-- Try using IP addresses directly for testing
-
-**"Connection timeout" errors**:
-- Target host may be down or blocking connections
-- Firewall rules may be preventing access
-- Increase timeout values in configuration if needed
-
-**AI parsing errors**:
-- Ensure your Gemini API key is correctly configured
-- Check your internet connection for API access
-- Try rephrasing your command more clearly
+1. Add one small function with a structured `dict` result.
+2. Export it from `src/core_functions.py` if the agent should call it.
+3. Add planning or prompt guidance only if needed.
+4. Decide whether results should update findings/inventory.
+5. Add focused tests for planning, execution, policy, and failure behavior.
 
 ## License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+MIT. See `LICENSE`.
