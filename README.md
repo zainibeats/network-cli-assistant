@@ -73,6 +73,18 @@ pip install -r requirements.txt
 python -m src.main
 ```
 
+Install development tools when running tests or linting:
+
+```bash
+pip install -r requirements-dev.txt
+```
+
+Gemini support is optional. Install its extra requirements before setting `NCA_LLM_PROVIDER=gemini`:
+
+```bash
+pip install -r requirements-gemini.txt
+```
+
 The Docker Compose service uses host networking so the default LM Studio/SearXNG URLs on `127.0.0.1` can work from the container on Linux. The compose file also mounts `./runtime-context` for assistant-owned notes and `/var/log` read-only for log inspection. It mounts the Docker socket for container inspection and approved container operations; treat that socket as highly privileged.
 
 ## Usage Examples
