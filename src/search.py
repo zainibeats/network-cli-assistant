@@ -38,7 +38,7 @@ def web_search(query: str, max_results: int = DEFAULT_MAX_RESULTS) -> dict[str, 
 
 
 def _selected_provider() -> str:
-    provider = os.getenv("NCA_SEARCH_PROVIDER", "searxng").strip().lower()
+    provider = os.getenv("CA_SEARCH_PROVIDER", "searxng").strip().lower()
     if provider in {"searx", "searxng"}:
         return "searxng"
     if provider == "brave":
@@ -47,7 +47,7 @@ def _selected_provider() -> str:
 
 
 def _search_searxng(query: str, max_results: int) -> dict[str, Any]:
-    base_url = os.getenv("NCA_SEARXNG_URL", DEFAULT_SEARXNG_URL).strip()
+    base_url = os.getenv("CA_SEARXNG_URL", DEFAULT_SEARXNG_URL).strip()
     params = parse.urlencode({"q": query, "format": "json"})
     separator = "&" if "?" in base_url else "?"
     url = f"{base_url}{separator}{params}"
@@ -80,7 +80,7 @@ def _search_brave(query: str, max_results: int) -> dict[str, Any]:
     if not api_key:
         return {
             "success": False,
-            "error": "BRAVE_SEARCH_API_KEY is required when NCA_SEARCH_PROVIDER=brave",
+            "error": "BRAVE_SEARCH_API_KEY is required when CA_SEARCH_PROVIDER=brave",
             "error_type": "missing_api_key",
         }
 

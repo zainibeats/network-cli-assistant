@@ -47,7 +47,7 @@ def parse_command(user_input: str) -> dict:
         A dictionary representing the function to call and its arguments.
         Returns error dict with suggestions if parsing fails.
     """
-    logger = logging.getLogger("network_cli.dispatcher")
+    logger = logging.getLogger("cli_assistant.dispatcher")
 
     if not user_input or not user_input.strip():
         logger.warning("Empty input received")
