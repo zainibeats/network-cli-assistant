@@ -1,7 +1,7 @@
 services:
-  network-cli-assistant:
+  cli-assistant:
     build: .
-    container_name: network-cli-assistant
+    container_name: cli-assistant
     network_mode: "host"
     dns:
       - 8.8.8.8
@@ -9,8 +9,8 @@ services:
     env_file:
       - .env
     environment:
-      NCA_LLM_PROVIDER: ${NCA_LLM_PROVIDER:-openai-compatible}
-      NCA_LLM_MODEL: ${NCA_LLM_MODEL:-local-model}
+      CA_LLM_PROVIDER: ${CA_LLM_PROVIDER:-openai-compatible}
+      CA_LLM_MODEL: ${CA_LLM_MODEL:-local-model}
       OPENAI_COMPATIBLE_BASE_URL: ${OPENAI_COMPATIBLE_BASE_URL:-http://127.0.0.1:1234/v1}
       OPENAI_COMPATIBLE_API_KEY: ${OPENAI_COMPATIBLE_API_KEY:-local}
     volumes:

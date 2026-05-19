@@ -127,7 +127,7 @@ def _persist_observation(command: dict, result: dict) -> None:
         record_finding(command, result)
         update_inventory(command, result)
     except Exception:
-        logging.getLogger("network_cli.agent").warning(
+        logging.getLogger("cli_assistant.agent").warning(
             "Could not persist assistant observation", exc_info=True
         )
 

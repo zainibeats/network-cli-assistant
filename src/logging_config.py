@@ -1,7 +1,7 @@
 # src/logging_config.py
 
 """
-Logging and debugging configuration for the Network CLI Assistant.
+Logging and debugging configuration for the CLI Assistant.
 
 This module provides comprehensive logging capabilities including:
 - Structured logging for network operations
@@ -22,7 +22,7 @@ from pathlib import Path
 from typing import Any, Dict, Optional
 
 # Default log directory
-DEFAULT_LOG_DIR = Path.home() / ".network_cli_assistant" / "logs"
+DEFAULT_LOG_DIR = Path.home() / ".cli_assistant" / "logs"
 
 
 class NetworkOperationFilter(logging.Filter):
@@ -117,7 +117,7 @@ class VerboseFormatter(logging.Formatter):
 
 
 class NetworkLogger:
-    """Main logging class for the Network CLI Assistant."""
+    """Main logging class for the CLI Assistant."""
 
     def __init__(
         self,
@@ -133,7 +133,7 @@ class NetworkLogger:
         Initialize the network logger.
 
         Args:
-            log_dir: Directory for log files (default: ~/.network_cli_assistant/logs)
+            log_dir: Directory for log files (default: ~/.cli_assistant/logs)
             verbose: Enable verbose console output
             debug: Enable debug level logging
             log_to_file: Whether to log to files
@@ -185,7 +185,7 @@ class NetworkLogger:
 
         if self.log_to_file:
             # Main log file (rotating)
-            main_log_file = self.log_dir / "network_cli.log"
+            main_log_file = self.log_dir / "cli_assistant.log"
             main_handler = logging.handlers.RotatingFileHandler(
                 main_log_file, maxBytes=self.max_log_size, backupCount=self.backup_count
             )
@@ -194,7 +194,7 @@ class NetworkLogger:
             root_logger.addHandler(main_handler)
 
             # JSON log file for structured logging
-            json_log_file = self.log_dir / "network_cli.json"
+            json_log_file = self.log_dir / "cli_assistant.json"
             json_handler = logging.handlers.RotatingFileHandler(
                 json_log_file, maxBytes=self.max_log_size, backupCount=self.backup_count
             )
@@ -225,7 +225,7 @@ class NetworkLogger:
         # Set operation context
         self.operation_filter.set_operation_context(operation, target, operation_id)
 
-        logger = logging.getLogger(f"network_cli.{operation}")
+        logger = logging.getLogger(f"cli_assistant.{operation}")
 
         try:
             logger.info(
@@ -275,7 +275,7 @@ class NetworkLogger:
             host: The target host
             result: The execution result
         """
-        logger = logging.getLogger("network_cli.command")
+        logger = logging.getLogger("cli_assistant.command")
 
         success = result.get("success", False)
         exit_code = result.get("exit_code", -1)
@@ -313,7 +313,7 @@ class NetworkLogger:
             scan_type: Type of scan (nmap, ping, etc.)
             result: The scan result
         """
-        logger = logging.getLogger("network_cli.scan")
+        logger = logging.getLogger("cli_assistant.scan")
 
         success = result.get("success", False)
 
@@ -350,7 +350,7 @@ class NetworkLogger:
             value: The invalid value
             error: The validation error message
         """
-        logger = logging.getLogger("network_cli.validation")
+        logger = logging.getLogger("cli_assistant.validation")
         logger.warning(
             f"Validation failed for {field}",
             extra={"field": field, "invalid_value": value, "validation_error": error},
@@ -365,7 +365,7 @@ class NetworkLogger:
             parsed_command: The parsed command from AI
             success: Whether parsing was successful
         """
-        logger = logging.getLogger("network_cli.ai")
+        logger = logging.getLogger("cli_assistant.ai")
 
         if success:
             logger.info(
@@ -392,7 +392,7 @@ class NetworkLogger:
         if not self.log_to_file:
             return
 
-        logger = logging.getLogger("network_cli.cleanup")
+        logger = logging.getLogger("cli_assistant.cleanup")
         cutoff_date = datetime.now() - timedelta(days=self.cleanup_days)
 
         cleaned_files = 0

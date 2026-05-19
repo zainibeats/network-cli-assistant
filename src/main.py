@@ -1,7 +1,7 @@
 # src/main.py
 
 """
-Main entry point for the Network CLI Assistant.
+Main entry point for the CLI Assistant.
 
 This script initializes the application, listens for user input,
 and orchestrates the command processing flow.
@@ -20,7 +20,7 @@ SESSION_APPROVED_COMMANDS: set[str] = set()
 
 def parse_args():
     """Parse command line arguments."""
-    parser = argparse.ArgumentParser(description="Network CLI Assistant")
+    parser = argparse.ArgumentParser(description="CLI Assistant")
     parser.add_argument("-v", "--verbose", action="store_true", help="Enable verbose output")
     parser.add_argument("-d", "--debug", action="store_true", help="Enable debug logging")
     parser.add_argument("--no-log-file", action="store_true", help="Disable logging to files")
@@ -76,7 +76,7 @@ def main():
     # Clean up old logs on startup
     logger.cleanup_old_logs()
 
-    print(f"{Colors.BOLD}Network CLI Assistant{Colors.END}")
+    print(f"{Colors.BOLD}CLI Assistant{Colors.END}")
     print(f"Runtime context: {context_root}")
     print("Type 'exit' or 'quit' to end the session.")
 
@@ -88,9 +88,9 @@ def main():
     # Log application startup
     import logging
 
-    app_logger = logging.getLogger("network_cli.app")
+    app_logger = logging.getLogger("cli_assistant.app")
     app_logger.info(
-        "Network CLI Assistant started",
+        "CLI Assistant started",
         extra={"verbose": args.verbose, "debug": args.debug, "log_to_file": not args.no_log_file},
     )
 
@@ -136,7 +136,7 @@ def main():
             print(f"An unexpected error occurred: {e}")
 
     # Log application shutdown
-    app_logger.info("Network CLI Assistant shutting down")
+    app_logger.info("CLI Assistant shutting down")
 
 
 if __name__ == "__main__":

@@ -28,7 +28,7 @@ def ping(host: str) -> dict:
     if not is_valid_target:
         return {"success": False, "error": error_msg}
 
-    logger = logging.getLogger("network_cli.ping")
+    logger = logging.getLogger("cli_assistant.ping")
     logger.info(f"Starting ping operation to {host}")
 
     print(f"Pinging host '{host}'...")
@@ -121,7 +121,7 @@ def traceroute(host: str) -> dict:
     if not is_valid_target:
         return {"success": False, "error": error_msg}
 
-    logger = logging.getLogger("network_cli.traceroute")
+    logger = logging.getLogger("cli_assistant.traceroute")
     logger.info(f"Starting traceroute to {host}")
 
     print(f"Tracing network path to '{host}'...")

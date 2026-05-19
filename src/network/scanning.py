@@ -104,7 +104,7 @@ def run_nmap_scan(
         if top_ports > 65535:
             return {"success": False, "error": "Port count too high (max 65535)"}
 
-    logger = logging.getLogger("network_cli.nmap")
+    logger = logging.getLogger("cli_assistant.nmap")
 
     # Determine scan type and build command
     scan_description = ""
@@ -547,7 +547,7 @@ def run_netstat() -> dict:
     Returns:
         dict: A dictionary with the command's output or an error message.
     """
-    logger = logging.getLogger("network_cli.netstat")
+    logger = logging.getLogger("cli_assistant.netstat")
     logger.info("Starting netstat operation")
 
     try:

@@ -27,7 +27,7 @@ def dns_lookup(host: str) -> dict:
     if not is_valid_target:
         return {"success": False, "error": error_msg}
 
-    logger = logging.getLogger("network_cli.dns")
+    logger = logging.getLogger("cli_assistant.dns")
     logger.info(f"Starting DNS lookup for {host}")
 
     print(f"Performing DNS lookup for '{host}'...")

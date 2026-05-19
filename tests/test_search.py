@@ -34,7 +34,7 @@ def test_web_search_uses_searxng_by_default(monkeypatch):
             }
         )
 
-    monkeypatch.delenv("NCA_SEARCH_PROVIDER", raising=False)
+    monkeypatch.delenv("CA_SEARCH_PROVIDER", raising=False)
     monkeypatch.setattr(search.request, "urlopen", fake_urlopen)
 
     result = search.web_search("jellyfin docker compose")
@@ -65,7 +65,7 @@ def test_web_search_supports_brave(monkeypatch):
             }
         )
 
-    monkeypatch.setenv("NCA_SEARCH_PROVIDER", "brave")
+    monkeypatch.setenv("CA_SEARCH_PROVIDER", "brave")
     monkeypatch.setenv("BRAVE_SEARCH_API_KEY", "test-key")
     monkeypatch.setattr(search.request, "urlopen", fake_urlopen)
 
@@ -78,7 +78,7 @@ def test_web_search_supports_brave(monkeypatch):
 
 
 def test_brave_requires_api_key(monkeypatch):
-    monkeypatch.setenv("NCA_SEARCH_PROVIDER", "brave")
+    monkeypatch.setenv("CA_SEARCH_PROVIDER", "brave")
     monkeypatch.delenv("BRAVE_SEARCH_API_KEY", raising=False)
 
     result = search.web_search("example")

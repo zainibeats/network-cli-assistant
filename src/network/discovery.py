@@ -58,7 +58,7 @@ def discover_hosts(
     if not isinstance(timeout, int) or timeout < 10 or timeout > 3600:
         return {"success": False, "error": "Timeout must be between 10 and 3600 seconds"}
 
-    logger = logging.getLogger("network_cli.host_discovery")
+    logger = logging.getLogger("cli_assistant.host_discovery")
 
     try:
         network_obj = ipaddress.ip_network(network, strict=False)

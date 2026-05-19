@@ -102,7 +102,7 @@ def _render_inventory_document(
 
 
 def _extract_admin_notes(content: str) -> str:
-    match = re.search(r"## Admin Notes\n\n(.*?)(?:\n## |\n<!-- nca:metadata)", content, re.DOTALL)
+    match = re.search(r"## Admin Notes\n\n(.*?)(?:\n## |\n<!-- ca:metadata)", content, re.DOTALL)
     if not match:
         return ""
     notes = match.group(1).strip()

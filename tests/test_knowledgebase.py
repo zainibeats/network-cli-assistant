@@ -37,7 +37,7 @@ def test_update_inventory_writes_bounded_host_profile(tmp_path):
     assert "# 192.168.1.10" in content
     assert "## Admin Notes" in content
     assert "`ping` success: PING 192.168.1.10" in content
-    assert "nca:metadata" not in content
+    assert "ca:metadata" not in content
 
 
 def test_update_inventory_preserves_admin_notes_and_caps_observations(tmp_path):

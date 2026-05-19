@@ -1,8 +1,8 @@
-# Network CLI Assistant
+# CLI Assistant
 
 > This project contains AI-generated code.
 
-Network CLI Assistant is a local-first terminal agent for homelab and host administration. It accepts natural language, asks a configured model to plan small tool steps, runs approved diagnostics, records compact local observations, and summarizes what it found.
+CLI Assistant is a local-first terminal agent for homelab and host administration. It accepts natural language, asks a configured model to plan small tool steps, runs approved diagnostics, records compact local observations, and summarizes what it found.
 
 The assistant is intentionally minimal. It does not use browser automation, SSH by default, or broad autonomous workflows. It focuses on local shell diagnostics, network checks, Docker/container inspection, optional approved web search, and explicit approval before risky actions.
 
@@ -34,24 +34,24 @@ cp .env.example .env
 Common settings:
 
 ```env
-NCA_LLM_PROVIDER=openai-compatible
-NCA_LLM_MODEL=local-model-name
+CA_LLM_PROVIDER=openai-compatible
+CA_LLM_MODEL=local-model-name
 OPENAI_COMPATIBLE_BASE_URL=http://127.0.0.1:1234/v1
 OPENAI_COMPATIBLE_API_KEY=local
-NCA_RUNTIME_CONTEXT_DIR=runtime-context
+CA_RUNTIME_CONTEXT_DIR=runtime-context
 ```
 
 Optional web search:
 
 ```env
-NCA_SEARCH_PROVIDER=searxng
-NCA_SEARXNG_URL=http://127.0.0.1:8080/search
+CA_SEARCH_PROVIDER=searxng
+CA_SEARXNG_URL=http://127.0.0.1:8080/search
 ```
 
 For Brave Search:
 
 ```env
-NCA_SEARCH_PROVIDER=brave
+CA_SEARCH_PROVIDER=brave
 BRAVE_SEARCH_API_KEY=YOUR_API_KEY_HERE
 ```
 
@@ -63,7 +63,7 @@ Docker is the recommended path:
 
 ```bash
 docker compose build
-docker compose run --rm network-cli-assistant
+docker compose run --rm cli-assistant
 ```
 
 Run from source when you want direct host visibility:
@@ -79,7 +79,7 @@ Install development tools when running tests or linting:
 pip install -r requirements-dev.txt
 ```
 
-Gemini support is optional. Install its extra requirements before setting `NCA_LLM_PROVIDER=gemini`:
+Gemini support is optional. Install its extra requirements before setting `CA_LLM_PROVIDER=gemini`:
 
 ```bash
 pip install -r requirements-gemini.txt
@@ -129,7 +129,7 @@ When a request needs current external information, the agent can plan a `web_sea
 
 ## Runtime Context
 
-At startup the assistant creates this data-only structure under `NCA_RUNTIME_CONTEXT_DIR`:
+At startup the assistant creates this data-only structure under `CA_RUNTIME_CONTEXT_DIR`:
 
 ```text
 runtime-context/

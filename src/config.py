@@ -1,7 +1,7 @@
 # src/config.py
 
 """
-Configuration management for the Network CLI Assistant.
+Configuration management for the CLI Assistant.
 
 Handles loading, validating, and providing access to configuration
 settings, such as credentials, server lists, or API keys.

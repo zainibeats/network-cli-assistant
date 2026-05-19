@@ -11,7 +11,7 @@ DEFAULT_LOCAL_BASE_URL = "http://127.0.0.1:1234/v1"
 
 def selected_provider() -> str:
     """Return the configured model provider."""
-    provider = os.getenv("NCA_LLM_PROVIDER") or os.getenv("LLM_PROVIDER")
+    provider = os.getenv("CA_LLM_PROVIDER") or os.getenv("LLM_PROVIDER")
     if provider:
         return provider.strip().lower()
     return "openai-compatible"
@@ -34,7 +34,7 @@ def parse_with_gemini(full_prompt: str) -> dict:
     """Parse user intent with Google Gemini."""
     import google.generativeai as genai
 
-    model_name = os.getenv("NCA_LLM_MODEL") or os.getenv("LLM_MODEL") or DEFAULT_GEMINI_MODEL
+    model_name = os.getenv("CA_LLM_MODEL") or os.getenv("LLM_MODEL") or DEFAULT_GEMINI_MODEL
     genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
     model = genai.GenerativeModel(model_name)
     response = model.generate_content(full_prompt)
@@ -45,11 +45,11 @@ def parse_with_openai_compatible(full_prompt: str) -> dict:
     """Parse user intent with an OpenAI-compatible local endpoint."""
     base_url = (
         os.getenv("OPENAI_COMPATIBLE_BASE_URL")
-        or os.getenv("NCA_OPENAI_BASE_URL")
+        or os.getenv("CA_OPENAI_BASE_URL")
         or DEFAULT_LOCAL_BASE_URL
     ).rstrip("/")
-    model_name = os.getenv("NCA_LLM_MODEL") or os.getenv("LLM_MODEL") or DEFAULT_LOCAL_MODEL
-    api_key = os.getenv("OPENAI_COMPATIBLE_API_KEY") or os.getenv("NCA_OPENAI_API_KEY") or "local"
+    model_name = os.getenv("CA_LLM_MODEL") or os.getenv("LLM_MODEL") or DEFAULT_LOCAL_MODEL
+    api_key = os.getenv("OPENAI_COMPATIBLE_API_KEY") or os.getenv("CA_OPENAI_API_KEY") or "local"
 
     payload = {
         "model": model_name,
@@ -85,11 +85,11 @@ def chat_with_openai_compatible(system_prompt: str, user_prompt: str, *, tempera
     """Send a chat request to an OpenAI-compatible local endpoint."""
     base_url = (
         os.getenv("OPENAI_COMPATIBLE_BASE_URL")
-        or os.getenv("NCA_OPENAI_BASE_URL")
+        or os.getenv("CA_OPENAI_BASE_URL")
         or DEFAULT_LOCAL_BASE_URL
     ).rstrip("/")
-    model_name = os.getenv("NCA_LLM_MODEL") or os.getenv("LLM_MODEL") or DEFAULT_LOCAL_MODEL
-    api_key = os.getenv("OPENAI_COMPATIBLE_API_KEY") or os.getenv("NCA_OPENAI_API_KEY") or "local"
+    model_name = os.getenv("CA_LLM_MODEL") or os.getenv("LLM_MODEL") or DEFAULT_LOCAL_MODEL
+    api_key = os.getenv("OPENAI_COMPATIBLE_API_KEY") or os.getenv("CA_OPENAI_API_KEY") or "local"
 
     payload = {
         "model": model_name,
@@ -124,7 +124,7 @@ def chat_with_gemini(system_prompt: str, user_prompt: str, *, temperature: float
     """Send a chat request to Google Gemini."""
     import google.generativeai as genai
 
-    model_name = os.getenv("NCA_LLM_MODEL") or os.getenv("LLM_MODEL") or DEFAULT_GEMINI_MODEL
+    model_name = os.getenv("CA_LLM_MODEL") or os.getenv("LLM_MODEL") or DEFAULT_GEMINI_MODEL
     genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
     model = genai.GenerativeModel(
         model_name,

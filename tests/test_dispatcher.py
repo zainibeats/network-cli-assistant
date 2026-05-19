@@ -16,7 +16,7 @@ def test_extract_json_payload_handles_json_fence():
 
 
 def test_selected_provider_defaults_to_openai_compatible(monkeypatch):
-    monkeypatch.delenv("NCA_LLM_PROVIDER", raising=False)
+    monkeypatch.delenv("CA_LLM_PROVIDER", raising=False)
     monkeypatch.delenv("LLM_PROVIDER", raising=False)
 
     assert selected_provider() == "openai-compatible"

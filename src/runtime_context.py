@@ -8,7 +8,7 @@ DEFAULT_CONTEXT_DIR = "runtime-context"
 
 def get_runtime_context_dir() -> Path:
     """Return the configured runtime context directory."""
-    return Path(os.getenv("NCA_RUNTIME_CONTEXT_DIR", DEFAULT_CONTEXT_DIR))
+    return Path(os.getenv("CA_RUNTIME_CONTEXT_DIR", DEFAULT_CONTEXT_DIR))
 
 
 def ensure_directory(path: Path) -> Path:

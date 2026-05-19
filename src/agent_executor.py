@@ -169,7 +169,7 @@ def _execute_agent_steps(
     approval_callback: ApprovalCallback | None,
 ) -> list[dict]:
     """Execute plan steps and persist each observation."""
-    logger = logging.getLogger("network_cli.agent")
+    logger = logging.getLogger("cli_assistant.agent")
     results = []
 
     for plan_step in steps:
