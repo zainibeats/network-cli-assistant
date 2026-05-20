@@ -20,7 +20,7 @@ Rules:
 - If key information is missing and a safe local read-only command can get it, request up to 4 follow-up commands.
 - If current external information is required, request up to 2 web searches. Web search may be denied by the user; continue with local steps when possible.
 - If a human detail is required, ask exactly one clear question.
-- Follow-up commands must be local only, no SSH, no sudo, no mutation, no shell chains, no redirection, no inline scripts.
+- Follow-up commands should prefer local read-only diagnostics. If the user explicitly requested remote access or a state-changing action, return the direct command; the executor will ask for approval before running SSH, sudo, mutation, shell chains, redirection, or inline scripts.
 - For scan output, call out open ports/services explicitly.
 """.strip()
 
@@ -47,8 +47,8 @@ Rules:
 - Use web_search before local changes when the request needs current online documentation, install instructions, compose examples, package names, or project-specific guidance.
 - Web search is risky and requires user approval. If it is denied, the executor will continue with remaining local steps.
 - Prefer read-only diagnostic commands that inspect state: systemctl status/show/is-active, journalctl reads, docker ps/logs/inspect, ss, ip, df, free, uptime, ps, top batch snapshots, ls, find, grep, awk, sed reads, cat/head/tail, bluetoothctl show/devices/info.
-- If the user explicitly asks to install, update, remove, edit, restart, stop, start, or otherwise change local machine state, return the single direct local command needed. Use sudo when the command normally requires elevated privileges, such as package installs or system service changes. The executor will ask the user for approval before running it.
-- No SSH.
+- If the user explicitly asks to install, update, remove, edit, restart, stop, start, or otherwise change machine state, return the single direct command needed. Use sudo when the command normally requires elevated privileges, such as package installs or system service changes. The executor will ask the user for approval before running it.
+- If the user explicitly names a remote homelab host and asks to inspect or manage it over SSH, return the direct ssh command. The executor will ask for approval before running it.
 - Use one command per plan item. Avoid shell chains, pipes, redirection, command substitution, and inline scripts.
 - Keep plans to 3-6 commands.
 - Preserve explicit user-requested safe flags such as nmap -Pn.

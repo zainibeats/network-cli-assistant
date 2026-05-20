@@ -6,18 +6,21 @@ import json
 import shlex
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 from .runtime_context import ensure_directory, get_runtime_context_dir, set_private_permissions
 
+ApprovalMode = Literal["safe", "ask", "power"]
+CommandPolicyAction = Literal["auto_allow", "ask", "deny"]
+
 DEFAULT_POLICY: dict[str, Any] = {
-    "version": 1,
-    "read_only_shell_auto_approve": True,
+    "version": 3,
+    "mode": "ask",
     "approval": {
         "allow_session_approval": True,
         "allow_policy_edits_from_prompt": False,
     },
-    "blocked_commands": ["ssh", "scp"],
+    "blocked_commands": [],
     "risky_commands": [
         "apt",
         "apt-get",
@@ -40,6 +43,8 @@ DEFAULT_POLICY: dict[str, Any] = {
         "rsync",
         "service",
         "shutdown",
+        "scp",
+        "ssh",
         "sudo",
         "systemctl",
         "tee",
@@ -151,12 +156,21 @@ MUTATING_DOCKER_ACTIONS = frozenset(
 
 
 @dataclass(frozen=True)
-class PolicyDecision:
-    """Result of checking a command against editable policy."""
+class CommandPolicyDecision:
+    """Normalized command execution decision."""
 
-    allowed: bool
-    needs_approval: bool
+    action: CommandPolicyAction
     reason: str | None = None
+    mode: ApprovalMode = "ask"
+    require_safe: bool = True
+
+    @property
+    def allowed(self) -> bool:
+        return self.action != "deny"
+
+    @property
+    def needs_approval(self) -> bool:
+        return self.action == "ask"
 
 
 def policy_path(context_dir: Path | None = None) -> Path:
@@ -175,7 +189,12 @@ def load_policy(context_dir: Path | None = None) -> dict[str, Any]:
         backup = path.with_suffix(".invalid.json")
         path.replace(backup)
         return write_default_policy(context_dir)
-    return _merge_defaults(loaded)
+    merged = _merge_defaults(loaded)
+    upgraded = _upgrade_policy(merged)
+    if upgraded != loaded:
+        path.write_text(json.dumps(upgraded, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+        set_private_permissions(path, 0o600)
+    return upgraded
 
 
 def write_default_policy(context_dir: Path | None = None) -> dict[str, Any]:
@@ -186,23 +205,39 @@ def write_default_policy(context_dir: Path | None = None) -> dict[str, Any]:
     return DEFAULT_POLICY.copy()
 
 
-def evaluate_command_policy(command: str, context_dir: Path | None = None) -> PolicyDecision:
-    """Classify a shell command using the editable runtime policy."""
-    try:
-        parts = shlex.split(command)
-    except ValueError as exc:
-        return PolicyDecision(False, False, f"Invalid shell syntax: {exc}")
+def classify_shell_command(
+    command: str,
+    *,
+    mode: ApprovalMode | None = None,
+    context_dir: Path | None = None,
+) -> CommandPolicyDecision:
+    """Classify a shell command for execution in the selected assistant mode."""
+    selected_mode = mode or _policy_mode(load_policy(context_dir))
 
-    if not parts:
-        return PolicyDecision(False, False, "Command cannot be empty")
+    block_reason = _policy_block_reason(command, context_dir=context_dir)
+    if block_reason:
+        return CommandPolicyDecision("deny", block_reason, selected_mode)
 
-    executable = parts[0].rsplit("/", 1)[-1]
-    policy = load_policy(context_dir)
-    if executable in set(policy.get("blocked_commands", [])):
-        return PolicyDecision(False, False, f"{executable} is blocked by policy")
-    if executable in set(policy.get("risky_commands", [])):
-        return PolicyDecision(True, True, f"{executable} is configured as risky")
-    return PolicyDecision(True, False, None)
+    is_safe, safe_reason = validate_safe_shell_command(command)
+    if is_safe:
+        return CommandPolicyDecision("auto_allow", None, selected_mode, require_safe=True)
+
+    approval_reason = _approval_reason(command, context_dir=context_dir)
+    reason = approval_reason or safe_reason
+    if approval_reason is None:
+        return CommandPolicyDecision("deny", reason, selected_mode)
+
+    if selected_mode == "safe":
+        return CommandPolicyDecision(
+            "deny",
+            f"{reason}; switch to ask or power mode to approve it",
+            selected_mode,
+            require_safe=True,
+        )
+    if selected_mode == "power":
+        return CommandPolicyDecision("auto_allow", reason, selected_mode, require_safe=False)
+
+    return CommandPolicyDecision("ask", reason, selected_mode, require_safe=False)
 
 
 def validate_safe_shell_command(command: str) -> tuple[bool, str | None]:
@@ -240,37 +275,70 @@ def validate_safe_shell_command(command: str) -> tuple[bool, str | None]:
     return True, None
 
 
-def command_requires_approval(command: str) -> tuple[bool, str | None]:
-    """Return whether a syntactically valid command needs explicit approval."""
-    policy_decision = evaluate_command_policy(command)
-    if not policy_decision.allowed:
-        return False, policy_decision.reason
-    if policy_decision.needs_approval:
-        return True, policy_decision.reason
+def _approval_reason(command: str, context_dir: Path | None = None) -> str | None:
+    """Return why a shell command needs approval, or None when it should be denied."""
+    policy_reason = _policy_approval_reason(command, context_dir=context_dir)
+    if policy_reason:
+        return policy_reason
 
     try:
         parts = shlex.split(command)
-    except ValueError as exc:
-        return False, f"Invalid shell syntax: {exc}"
+    except ValueError:
+        return None
 
     if not parts:
-        return False, "Command cannot be empty"
+        return None
 
     executable = _base_command(parts[0])
     if executable == "systemctl":
         if _has_mutating_systemctl_action(parts[1:]):
-            return True, "state-changing systemctl action"
+            return "state-changing systemctl action"
         if not _has_read_only_systemctl_action(parts[1:]):
-            return True, "systemctl action is not clearly read-only"
+            return "systemctl action is not clearly read-only"
     if executable == "docker" and _has_mutating_docker_action(parts[1:]):
-        return True, "state-changing docker action"
+        return "state-changing docker action"
     if executable in SAFE_MODE_BLOCKED_COMMANDS:
-        return True, f"{executable} is not read-only"
+        return f"{executable} is not read-only"
     if any(token in command for token in BLOCKED_TOKENS) or "|" in command:
-        return True, "shell composition or redirection"
+        return "shell composition or redirection"
     if _looks_like_inline_script(parts):
-        return True, "inline script"
-    return False, None
+        return "inline script"
+    return None
+
+
+def _policy_approval_reason(command: str, context_dir: Path | None = None) -> str | None:
+    try:
+        parts = shlex.split(command)
+    except ValueError:
+        return None
+    if not parts:
+        return None
+
+    executable = _base_command(parts[0])
+    policy = load_policy(context_dir)
+    if executable in set(policy.get("risky_commands", [])):
+        return f"{executable} is configured as risky"
+    return None
+
+
+def _policy_block_reason(command: str, context_dir: Path | None = None) -> str | None:
+    try:
+        parts = shlex.split(command)
+    except ValueError:
+        return None
+    if not parts:
+        return None
+
+    executable = _base_command(parts[0])
+    policy = load_policy(context_dir)
+    if executable in set(policy.get("blocked_commands", [])):
+        return f"{executable} is blocked by policy"
+    return None
+
+
+def _policy_mode(policy: dict[str, Any]) -> ApprovalMode:
+    mode = policy.get("mode")
+    return mode if mode in {"safe", "ask", "power"} else "ask"
 
 
 def _merge_defaults(loaded: dict[str, Any]) -> dict[str, Any]:
@@ -281,6 +349,21 @@ def _merge_defaults(loaded: dict[str, Any]) -> dict[str, Any]:
         else:
             merged[key] = value
     return merged
+
+
+def _upgrade_policy(policy: dict[str, Any]) -> dict[str, Any]:
+    upgraded = json.loads(json.dumps(policy))
+    upgraded.pop("read_only_shell_auto_approve", None)
+    if int(upgraded.get("version") or 1) < 2:
+        blocked = [item for item in upgraded.get("blocked_commands", []) if item not in {"ssh", "scp"}]
+        risky = list(dict.fromkeys([*upgraded.get("risky_commands", []), "ssh", "scp"]))
+        upgraded["blocked_commands"] = blocked
+        upgraded["risky_commands"] = risky
+        upgraded["mode"] = upgraded.get("mode") if upgraded.get("mode") in {"safe", "ask", "power"} else "ask"
+        upgraded["version"] = 2
+    if int(upgraded.get("version") or 1) < 3:
+        upgraded["version"] = 3
+    return upgraded
 
 
 def _base_command(value: str) -> str:

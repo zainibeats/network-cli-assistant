@@ -9,10 +9,11 @@ from . import core_functions
 from .agent_planner import AGENT_FUNCTIONS, external_scan_reason, step
 from .agent_prompts import observer_prompt
 from .audit import record_audit_event
-from .bash_tool import command_requires_approval, run_bash, validate_bash_command
+from .bash_tool import classify_bash_command, run_bash
 from .findings import record_finding, summarize_result
 from .knowledgebase import update_inventory
 from .llm_providers import parse_json_with_provider
+from .policy import ApprovalMode
 
 MAX_OBSERVATION_CHARS = 4000
 MAX_DISPLAY_CHARS = 8000
@@ -30,6 +31,7 @@ def execute_agent_plan(
     approval_callback: ApprovalCallback | None = None,
     user_input: str = "",
     observe_with_model: bool = False,
+    approval_mode: ApprovalMode | None = None,
 ) -> dict:
     """Execute an agent plan, optionally letting the model inspect observations."""
     record_audit_event(
@@ -47,6 +49,7 @@ def execute_agent_plan(
         finding_recorder=finding_recorder,
         inventory_updater=inventory_updater,
         approval_callback=approval_callback,
+        approval_mode=approval_mode,
     )
 
     final_answer = ""
@@ -71,6 +74,7 @@ def execute_agent_plan(
                 finding_recorder=finding_recorder,
                 inventory_updater=inventory_updater,
                 approval_callback=approval_callback,
+                approval_mode=approval_mode,
             )
             results.extend(more_results)
 
@@ -167,6 +171,7 @@ def _execute_agent_steps(
     finding_recorder: Callable[[dict, dict], object],
     inventory_updater: Callable[[dict, dict], object],
     approval_callback: ApprovalCallback | None,
+    approval_mode: ApprovalMode | None,
 ) -> list[dict]:
     """Execute plan steps and persist each observation."""
     logger = logging.getLogger("cli_assistant.agent")
@@ -179,7 +184,7 @@ def _execute_agent_steps(
                 {
                     "step": plan_step,
                     "success": False,
-                    "error": f"Function is not allowed in safe mode: {function_name}",
+                    "error": f"Function is not available to the assistant: {function_name}",
                 }
             )
             continue
@@ -187,12 +192,17 @@ def _execute_agent_steps(
         command = {"function": function_name, "args": plan_step.get("args", {})}
         try:
             if function_name == "run_bash":
-                result = _run_bash_step(command["args"], approval_callback=approval_callback)
+                result = _run_bash_step(
+                    command["args"],
+                    approval_callback=approval_callback,
+                    approval_mode=approval_mode,
+                )
             elif function_name == "web_search":
                 result = _run_web_search_step(
                     command["args"],
                     resolver=resolver,
                     approval_callback=approval_callback,
+                    approval_mode=approval_mode,
                 )
             else:
                 result = resolver(function_name)(**command["args"])
@@ -212,23 +222,43 @@ def _execute_agent_steps(
     return results
 
 
-def _run_bash_step(args: dict, approval_callback: ApprovalCallback | None = None) -> dict:
+def _run_bash_step(
+    args: dict,
+    approval_callback: ApprovalCallback | None = None,
+    approval_mode: ApprovalMode | None = None,
+) -> dict:
     command = str(args.get("command", ""))
     timeout = int(args.get("timeout", 30))
-    is_allowed, reason = validate_bash_command(command)
-    if is_allowed:
-        record_audit_event("command_execute", {"command": command, "approval": "not_required"})
+    decision = classify_bash_command(command, mode=approval_mode)
+    if decision.action == "auto_allow":
+        approval = "power_mode" if not decision.require_safe else "not_required"
+        record_audit_event("command_execute", {"command": command, "approval": approval})
+        if not decision.require_safe:
+            return run_bash(
+                command=command,
+                timeout=timeout,
+                require_safe=False,
+                interactive=_needs_interactive_terminal(command),
+            )
         if "timeout" in args:
             return run_bash(command=command, timeout=timeout)
         return run_bash(command=command)
 
-    requires_approval, approval_reason = command_requires_approval(command)
-    if not requires_approval or approval_callback is None:
-        record_audit_event("command_blocked", {"command": command, "reason": approval_reason or reason})
-        return {"success": False, "error": reason, "error_type": "policy_blocked"}
+    if decision.action == "deny":
+        record_audit_event("command_blocked", {"command": command, "reason": decision.reason})
+        return {"success": False, "error": decision.reason, "error_type": "policy_blocked"}
 
-    approved = approval_callback(command, approval_reason)
-    record_audit_event("command_approval", {"command": command, "reason": approval_reason, "approved": approved})
+    if approval_callback is None:
+        record_audit_event("command_approval_missing", {"command": command, "reason": decision.reason})
+        return {
+            "success": False,
+            "error": f"Approval required before running: {command}",
+            "error_type": "approval_required",
+            "approval_reason": decision.reason,
+        }
+
+    approved = approval_callback(command, decision.reason)
+    record_audit_event("command_approval", {"command": command, "reason": decision.reason, "approved": approved})
     if not approved:
         return {
             "success": False,
@@ -254,12 +284,17 @@ def _run_web_search_step(
     *,
     resolver: Callable[[str], Callable],
     approval_callback: ApprovalCallback | None = None,
+    approval_mode: ApprovalMode | None = None,
 ) -> dict:
     query = str(args.get("query", "")).strip()
     if not query:
         return {"success": False, "error": "Search query cannot be empty", "error_type": "invalid_search"}
 
     reason = f"Web search can reveal information outside the local machine. Query: {query}"
+    if approval_mode == "power":
+        record_audit_event("web_search_execute", {"query_preview": query[:120], "approval": "power_mode"})
+        return resolver("web_search")(**args)
+
     if approval_callback is None:
         record_audit_event("web_search_blocked", {"query_preview": query[:120]})
         return {"success": False, "error": reason, "error_type": "approval_required"}

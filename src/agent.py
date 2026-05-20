@@ -18,10 +18,11 @@ from .agent_planner import (
 from .audit import record_audit_event
 from .dispatcher import parse_command
 from .findings import record_finding
+from .formatting.output import format_output
 from .knowledgebase import update_inventory
 from .llm_providers import chat_with_provider
 from .memory import append_chat_turn, load_chat_memory, load_runtime_memory
-from .utils import format_output
+from .policy import ApprovalMode
 
 ApprovalCallback = Callable[[str, str | None], bool]
 
@@ -39,7 +40,11 @@ PENDING_CLARIFICATION_TTL_SECONDS = 300
 CLARIFICATION_CANCEL_WORDS = {"cancel", "nevermind", "never mind", "ignore that"}
 
 
-def handle_agent_message(user_input: str, approval_callback: ApprovalCallback | None = None) -> str:
+def handle_agent_message(
+    user_input: str,
+    approval_callback: ApprovalCallback | None = None,
+    approval_mode: ApprovalMode | None = None,
+) -> str:
     """Handle every user message through the assistant agent path."""
     global _PENDING_REQUEST
 
@@ -74,9 +79,19 @@ def handle_agent_message(user_input: str, approval_callback: ApprovalCallback | 
         command = as_agent_plan(command or parse_command(user_input))
         if command.get("status") == "needs_clarification":
             _set_pending_request(original_input, command.get("question"))
-        result = _run_parsed_request(command, approval_callback=approval_callback, user_input=user_input)
+        result = _run_parsed_request(
+            command,
+            approval_callback=approval_callback,
+            user_input=user_input,
+            approval_mode=approval_mode,
+        )
     elif isinstance(result, dict) and result.get("status") == "agent_plan":
-        result = _run_parsed_request(result, approval_callback=approval_callback, user_input=user_input)
+        result = _run_parsed_request(
+            result,
+            approval_callback=approval_callback,
+            user_input=user_input,
+            approval_mode=approval_mode,
+        )
 
     if isinstance(result, dict) and result.get("status") == "needs_clarification":
         _set_pending_request(original_input, result.get("question"))
@@ -115,6 +130,7 @@ def _run_parsed_request(
     command: dict,
     approval_callback: ApprovalCallback | None = None,
     user_input: str = "",
+    approval_mode: ApprovalMode | None = None,
 ) -> dict:
     if command.get("status") == "needs_clarification":
         return {
@@ -130,6 +146,7 @@ def _run_parsed_request(
             approval_callback=approval_callback,
             user_input=user_input,
             observe_with_model=True,
+            approval_mode=approval_mode,
         )
 
     if command.get("status") == "error" or "error" in command:

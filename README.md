@@ -23,6 +23,14 @@ pip install -r requirements.txt
 python -m src.main
 ```
 
+The CLI starts in `ask` mode by default. You can choose a mode explicitly:
+
+```bash
+python -m src.main --mode safe   # read-only local diagnostics only
+python -m src.main --mode ask    # read-only diagnostics auto-run; risky commands prompt
+python -m src.main --mode power  # direct admin/remote/search commands run without prompting
+```
+
 Common `.env` settings:
 
 ```env
@@ -96,8 +104,9 @@ search online for the current traefik docker compose labels
 ## Safety Model
 
 - Clearly read-only diagnostics can run without prompting when they pass the shell policy.
-- Risky commands require approval, including `sudo`, package managers, Docker mutations, service changes, file writes, shell chains, redirection, inline scripts, and `web_search`.
-- SSH and SCP are blocked by default.
+- Risky commands require approval, including `sudo`, SSH/SCP, package managers, Docker mutations, service changes, file writes, shell chains, redirection, inline scripts, and `web_search`.
+- In `safe` mode, risky shell commands are denied instead of prompting.
+- In `power` mode, risky shell commands and web search run without prompting. Use it only when you want YOLO-style local execution.
 - Vulnerability and port scans are limited to private/local targets unless the user explicitly confirms an external/public target.
 - Search results are used only inside the current agent run.
 - Audit events are written under `runtime-context/audit`.

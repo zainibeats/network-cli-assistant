@@ -418,6 +418,114 @@ def test_execute_agent_plan_asks_approval_for_package_install(monkeypatch):
     ]
 
 
+def test_execute_agent_plan_reports_missing_approval_for_sudo(monkeypatch):
+    calls = []
+    monkeypatch.setattr(
+        agent_executor,
+        "run_bash",
+        lambda **kwargs: calls.append(kwargs) or {"success": True, "stdout": "installed"},
+    )
+
+    result = execute_agent_plan(
+        {
+            "status": "agent_plan",
+            "mode": "power",
+            "target": "local-machine",
+            "steps": [
+                {
+                    "function": "run_bash",
+                    "args": {"command": "sudo apt install htop"},
+                    "reason": "Install requested package",
+                }
+            ],
+        },
+        finding_recorder=lambda _command, _result: None,
+        inventory_updater=lambda _command, _result: None,
+        approval_mode="ask",
+    )
+
+    assert calls == []
+    assert "Approval required before running" in result["output"]
+
+
+def test_execute_agent_plan_asks_approval_for_ssh(monkeypatch):
+    calls = []
+    monkeypatch.setattr(
+        agent_executor,
+        "run_bash",
+        lambda **kwargs: calls.append(kwargs) or {"success": True, "stdout": "remote disk ok"},
+    )
+
+    result = execute_agent_plan(
+        {
+            "status": "agent_plan",
+            "mode": "power",
+            "target": "fileserver",
+            "steps": [
+                {
+                    "function": "run_bash",
+                    "args": {"command": "ssh fileserver df -h"},
+                    "reason": "Check remote disk usage",
+                }
+            ],
+        },
+        finding_recorder=lambda _command, _result: None,
+        inventory_updater=lambda _command, _result: None,
+        approval_callback=lambda command, reason: command.startswith("ssh ") and bool(reason),
+        approval_mode="ask",
+    )
+
+    assert result["agent"] is True
+    assert calls == [
+        {
+            "command": "ssh fileserver df -h",
+            "timeout": 30,
+            "require_safe": False,
+            "interactive": False,
+        }
+    ]
+
+
+def test_execute_agent_plan_power_mode_runs_sudo_without_prompt(monkeypatch):
+    calls = []
+    approvals = []
+    monkeypatch.setattr(
+        agent_executor,
+        "run_bash",
+        lambda **kwargs: calls.append(kwargs) or {"success": True, "stdout": "installed"},
+    )
+
+    result = execute_agent_plan(
+        {
+            "status": "agent_plan",
+            "mode": "power",
+            "target": "local-machine",
+            "steps": [
+                {
+                    "function": "run_bash",
+                    "args": {"command": "sudo apt install htop"},
+                    "reason": "Install requested package",
+                }
+            ],
+        },
+        finding_recorder=lambda _command, _result: None,
+        inventory_updater=lambda _command, _result: None,
+        approval_callback=lambda command, reason: approvals.append((command, reason)) or False,
+        approval_mode="power",
+    )
+
+    assert result["agent"] is True
+    assert approvals == []
+    assert calls == [
+        {
+            "command": "sudo apt install htop",
+            "timeout": 30,
+            "require_safe": False,
+            "interactive": True,
+        }
+    ]
+
+
 def test_execute_agent_plan_includes_command_output(monkeypatch):
     monkeypatch.setattr(
         agent_executor,
@@ -552,6 +660,46 @@ def test_execute_agent_plan_requires_approval_for_web_search():
         approval_callback=lambda command, reason: command == "web_search" and "jellyfin" in reason,
     )
 
+    assert calls == [("web_search", {"query": "jellyfin docker compose", "max_results": 5})]
+    assert "https://example.com" in result["output"]
+
+
+def test_execute_agent_plan_power_mode_runs_web_search_without_prompt():
+    calls = []
+    approvals = []
+
+    def fake_resolver(name):
+        def fake_function(**kwargs):
+            calls.append((name, kwargs))
+            return {
+                "success": True,
+                "results": [{"title": "Docs", "url": "https://example.com", "snippet": "Current docs"}],
+                "output": "1. Docs\n   URL: https://example.com",
+            }
+
+        return fake_function
+
+    result = execute_agent_plan(
+        {
+            "status": "agent_plan",
+            "mode": "power",
+            "target": "web",
+            "steps": [
+                {
+                    "function": "web_search",
+                    "args": {"query": "jellyfin docker compose", "max_results": 5},
+                    "reason": "Find current docs",
+                }
+            ],
+        },
+        function_resolver=fake_resolver,
+        finding_recorder=lambda _command, _result: None,
+        inventory_updater=lambda _command, _result: None,
+        approval_callback=lambda command, reason: approvals.append((command, reason)) or False,
+        approval_mode="power",
+    )
+
+    assert approvals == []
     assert calls == [("web_search", {"query": "jellyfin docker compose", "max_results": 5})]
     assert "https://example.com" in result["output"]
 

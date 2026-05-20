@@ -26,6 +26,11 @@ def parse_args():
     parser.add_argument("-d", "--debug", action="store_true", help="Enable debug logging")
     parser.add_argument("--no-log-file", action="store_true", help="Disable logging to files")
     parser.add_argument("--log-dir", type=str, help="Custom directory for log files")
+    parser.add_argument(
+        "--mode",
+        choices=["safe", "ask", "power"],
+        help="Command execution mode: safe denies risky shell, ask prompts, power runs risky commands without prompting",
+    )
     return parser.parse_args()
 
 
@@ -73,13 +78,16 @@ def main():
 
     logger = initialize_logging(**logger_kwargs)
     context_root = ensure_knowledgebase()
-    load_policy()
+    policy = load_policy()
+    policy_mode = policy.get("mode")
+    approval_mode = args.mode or (policy_mode if policy_mode in {"safe", "ask", "power"} else "ask")
 
     # Clean up old logs on startup
     logger.cleanup_old_logs()
 
     print(f"{Colors.BOLD}CLI Assistant{Colors.END}")
     print(f"Runtime context: {context_root}")
+    print(f"Mode: {approval_mode}")
     print("Type 'exit' or 'quit' to end the session.")
 
     if args.verbose:
@@ -116,7 +124,11 @@ def main():
             try:
                 if args.verbose:
                     print(f"{Colors.BLUE}agent: planning and running approved local steps...{Colors.END}")
-                response = handle_agent_message(user_input, approval_callback=_confirm_command)
+                response = handle_agent_message(
+                    user_input,
+                    approval_callback=_confirm_command,
+                    approval_mode=approval_mode,
+                )
                 logger.log_ai_interaction(user_input, {"status": "agent_handled"}, True)
                 print(f"{Colors.GREEN}assistant>{Colors.END}")
                 print(response)

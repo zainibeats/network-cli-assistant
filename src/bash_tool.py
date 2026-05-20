@@ -5,7 +5,7 @@ from __future__ import annotations
 import os
 import subprocess
 
-from .policy import command_requires_approval as _command_requires_approval
+from .policy import ApprovalMode, classify_shell_command
 from .policy import validate_safe_shell_command
 from .process_runner import run_process
 
@@ -18,7 +18,7 @@ def run_bash(
 ) -> dict:
     """Run a bash command after deterministic policy checks."""
     if require_safe:
-        is_allowed, reason = validate_bash_command(command)
+        is_allowed, reason = validate_safe_shell_command(command)
         if not is_allowed:
             return {"success": False, "error": reason, "error_type": "policy_blocked"}
 
@@ -59,14 +59,9 @@ def run_bash(
     }
 
 
-def validate_bash_command(command: str) -> tuple[bool, str | None]:
-    """Compatibility wrapper for safe shell validation."""
-    return validate_safe_shell_command(command)
-
-
-def command_requires_approval(command: str) -> tuple[bool, str | None]:
-    """Compatibility wrapper for approval classification."""
-    return _command_requires_approval(command)
+def classify_bash_command(command: str, mode: ApprovalMode | None = None):
+    """Classify a shell command before execution."""
+    return classify_shell_command(command, mode=mode)
 
 
 def _safe_env() -> dict[str, str]:
