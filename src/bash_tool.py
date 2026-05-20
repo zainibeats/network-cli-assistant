@@ -7,6 +7,7 @@ import subprocess
 
 from .policy import command_requires_approval as _command_requires_approval
 from .policy import validate_safe_shell_command
+from .process_runner import run_process
 
 
 def run_bash(
@@ -30,11 +31,8 @@ def run_bash(
                 env=_safe_env(),
             )
         else:
-            completed = subprocess.run(
+            completed = run_process(
                 ["bash", "-lc", command],
-                capture_output=True,
-                text=True,
-                check=False,
                 timeout=timeout,
                 env=_safe_env(),
             )

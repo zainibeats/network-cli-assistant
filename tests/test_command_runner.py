@@ -2,6 +2,7 @@ import subprocess
 
 import pytest
 
+from src import command_runner
 from src.command_runner import CommandExecutionError, run_command
 
 
@@ -21,10 +22,10 @@ def test_run_command_rejects_path_execution():
 
 
 def test_run_command_returns_normalized_result(monkeypatch):
-    def fake_run(*args, **kwargs):
+    def fake_run_process(*args, **kwargs):
         return subprocess.CompletedProcess(args[0], 0, stdout="ok", stderr="")
 
-    monkeypatch.setattr(subprocess, "run", fake_run)
+    monkeypatch.setattr(command_runner, "run_process", fake_run_process)
 
     result = run_command(["ping", "-c", "1", "127.0.0.1"], timeout=1)
 
@@ -34,10 +35,10 @@ def test_run_command_returns_normalized_result(monkeypatch):
 
 
 def test_run_command_raises_normalized_error(monkeypatch):
-    def fake_run(*args, **kwargs):
+    def fake_run_process(*args, **kwargs):
         return subprocess.CompletedProcess(args[0], 2, stdout="", stderr="failed")
 
-    monkeypatch.setattr(subprocess, "run", fake_run)
+    monkeypatch.setattr(command_runner, "run_process", fake_run_process)
 
     with pytest.raises(CommandExecutionError) as exc_info:
         run_command(["ping", "-c", "1", "127.0.0.1"], timeout=1)

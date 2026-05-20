@@ -1,5 +1,5 @@
 from src import dispatcher
-from src.llm_providers import extract_json_payload, selected_provider
+from src.llm_providers import extract_json_payload, parse_with_provider, selected_provider
 
 
 def test_extract_json_payload_handles_plain_json():
@@ -20,6 +20,17 @@ def test_selected_provider_defaults_to_openai_compatible(monkeypatch):
     monkeypatch.delenv("LLM_PROVIDER", raising=False)
 
     assert selected_provider() == "openai-compatible"
+
+
+def test_gemini_provider_is_not_supported(monkeypatch):
+    monkeypatch.setenv("CA_LLM_PROVIDER", "gemini")
+
+    try:
+        parse_with_provider("{}")
+    except ValueError as exc:
+        assert "Unsupported LLM provider: gemini" in str(exc)
+    else:
+        raise AssertionError("gemini provider should not be supported")
 
 
 def test_parse_command_validates_unknown_model_function(monkeypatch):

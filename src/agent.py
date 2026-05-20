@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import time
 from typing import Callable
 
 from . import core_functions
@@ -34,6 +35,8 @@ CHAT_PATTERNS = (
     "help",
 )
 _PENDING_REQUEST: dict | None = None
+PENDING_CLARIFICATION_TTL_SECONDS = 300
+CLARIFICATION_CANCEL_WORDS = {"cancel", "nevermind", "never mind", "ignore that"}
 
 
 def handle_agent_message(user_input: str, approval_callback: ApprovalCallback | None = None) -> str:
@@ -43,14 +46,20 @@ def handle_agent_message(user_input: str, approval_callback: ApprovalCallback | 
     original_input = user_input
     record_audit_event("user_request", {"input_preview": original_input[:300]})
     if _PENDING_REQUEST:
-        user_input = "\n".join(
-            [
-                f"Original request: {_PENDING_REQUEST['request']}",
-                f"Assistant question: {_PENDING_REQUEST['question']}",
-                f"User clarification: {user_input}",
-            ]
-        )
-        _PENDING_REQUEST = None
+        if _pending_request_expired(_PENDING_REQUEST):
+            _PENDING_REQUEST = None
+        elif _is_clarification_cancel(user_input):
+            _PENDING_REQUEST = None
+            return "Okay, I cleared the pending clarification."
+        else:
+            user_input = "\n".join(
+                [
+                    f"Original request: {_PENDING_REQUEST['request']}",
+                    f"Assistant question: {_PENDING_REQUEST['question']}",
+                    f"User clarification: {user_input}",
+                ]
+            )
+            _PENDING_REQUEST = None
 
     if _is_chat(user_input):
         response = _chat_response(user_input)
@@ -64,23 +73,37 @@ def handle_agent_message(user_input: str, approval_callback: ApprovalCallback | 
             command = build_shell_agent_plan(user_input) or command
         command = as_agent_plan(command or parse_command(user_input))
         if command.get("status") == "needs_clarification":
-            _PENDING_REQUEST = {
-                "request": original_input,
-                "question": command.get("question", "Please clarify the request."),
-            }
+            _set_pending_request(original_input, command.get("question"))
         result = _run_parsed_request(command, approval_callback=approval_callback, user_input=user_input)
     elif isinstance(result, dict) and result.get("status") == "agent_plan":
         result = _run_parsed_request(result, approval_callback=approval_callback, user_input=user_input)
 
     if isinstance(result, dict) and result.get("status") == "needs_clarification":
-        _PENDING_REQUEST = {
-            "request": original_input,
-            "question": result.get("question", "Please clarify the request."),
-        }
+        _set_pending_request(original_input, result.get("question"))
 
     response = format_output(result) if isinstance(result, dict) else str(result)
     append_chat_turn(user_input, response)
     return response
+
+
+def _set_pending_request(request: str, question: str | None) -> None:
+    global _PENDING_REQUEST
+    _PENDING_REQUEST = {
+        "request": request,
+        "question": question or "Please clarify the request.",
+        "created_at": time.monotonic(),
+    }
+
+
+def _pending_request_expired(pending_request: dict) -> bool:
+    created_at = pending_request.get("created_at")
+    if not isinstance(created_at, int | float):
+        return False
+    return time.monotonic() - created_at > PENDING_CLARIFICATION_TTL_SECONDS
+
+
+def _is_clarification_cancel(user_input: str) -> bool:
+    return " ".join(user_input.strip().lower().split()) in CLARIFICATION_CANCEL_WORDS
 
 
 def build_diagnostic_plan(user_input: str) -> dict | None:

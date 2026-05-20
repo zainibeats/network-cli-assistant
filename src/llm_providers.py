@@ -4,7 +4,6 @@ import json
 import os
 from urllib import error, request
 
-DEFAULT_GEMINI_MODEL = "gemini-2.5-flash"
 DEFAULT_LOCAL_MODEL = "local-model"
 DEFAULT_LOCAL_BASE_URL = "http://127.0.0.1:1234/v1"
 
@@ -28,17 +27,6 @@ def extract_json_payload(text_response: str) -> dict:
             text_response = "\n".join(lines[1:-1]).strip()
 
     return json.loads(text_response)
-
-
-def parse_with_gemini(full_prompt: str) -> dict:
-    """Parse user intent with Google Gemini."""
-    import google.generativeai as genai
-
-    model_name = os.getenv("CA_LLM_MODEL") or os.getenv("LLM_MODEL") or DEFAULT_GEMINI_MODEL
-    genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
-    model = genai.GenerativeModel(model_name)
-    response = model.generate_content(full_prompt)
-    return extract_json_payload(response.text)
 
 
 def parse_with_openai_compatible(full_prompt: str) -> dict:
@@ -120,26 +108,9 @@ def chat_with_openai_compatible(system_prompt: str, user_prompt: str, *, tempera
     return data["choices"][0]["message"]["content"].strip()
 
 
-def chat_with_gemini(system_prompt: str, user_prompt: str, *, temperature: float = 0) -> str:
-    """Send a chat request to Google Gemini."""
-    import google.generativeai as genai
-
-    model_name = os.getenv("CA_LLM_MODEL") or os.getenv("LLM_MODEL") or DEFAULT_GEMINI_MODEL
-    genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
-    model = genai.GenerativeModel(
-        model_name,
-        generation_config={"temperature": temperature},
-        system_instruction=system_prompt,
-    )
-    response = model.generate_content(user_prompt)
-    return response.text.strip()
-
-
 def parse_with_provider(full_prompt: str) -> dict:
     """Route prompt parsing to the configured model provider."""
     provider = selected_provider()
-    if provider == "gemini":
-        return parse_with_gemini(full_prompt)
     if provider in {"openai-compatible", "local", "lmstudio", "ollama"}:
         return parse_with_openai_compatible(full_prompt)
     raise ValueError(f"Unsupported LLM provider: {provider}")
@@ -148,8 +119,6 @@ def parse_with_provider(full_prompt: str) -> dict:
 def chat_with_provider(system_prompt: str, user_prompt: str, *, temperature: float = 0) -> str:
     """Route a general chat request to the configured model provider."""
     provider = selected_provider()
-    if provider == "gemini":
-        return chat_with_gemini(system_prompt, user_prompt, temperature=temperature)
     if provider in {"openai-compatible", "local", "lmstudio", "ollama"}:
         return chat_with_openai_compatible(system_prompt, user_prompt, temperature=temperature)
     raise ValueError(f"Unsupported LLM provider: {provider}")

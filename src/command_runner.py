@@ -9,6 +9,8 @@ import subprocess
 from dataclasses import dataclass
 from typing import Iterable, Sequence
 
+from .process_runner import run_process
+
 ALLOWED_EXECUTABLES = frozenset(
     {
         "ip",
@@ -68,11 +70,8 @@ def run_command(
     if "/" in executable or executable not in set(allowed_executables):
         raise ValueError(f"Executable is not allowed: {executable}")
 
-    completed = subprocess.run(
+    completed = run_process(
         list(args),
-        capture_output=True,
-        text=True,
-        check=False,
         timeout=timeout,
     )
     result = CommandResult(

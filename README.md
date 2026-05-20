@@ -78,18 +78,6 @@ CA_SEARCH_PROVIDER=brave
 BRAVE_SEARCH_API_KEY=YOUR_API_KEY_HERE
 ```
 
-Gemini support is optional:
-
-```bash
-pip install -r requirements-gemini.txt
-```
-
-```env
-CA_LLM_PROVIDER=gemini
-CA_LLM_MODEL=gemini-2.5-flash
-GEMINI_API_KEY=YOUR_API_KEY_HERE
-```
-
 ## Usage Examples
 
 ```text

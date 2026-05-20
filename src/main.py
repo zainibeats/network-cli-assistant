@@ -14,6 +14,7 @@ from src.formatting.colors import Colors
 from src.knowledgebase import ensure_knowledgebase
 from src.logging_config import initialize_logging
 from src.policy import load_policy
+from src.terminal_io import discard_pending_input, read_prompt
 
 SESSION_APPROVED_COMMANDS: set[str] = set()
 
@@ -33,6 +34,7 @@ def _confirm_command(command: str, reason: str | None = None) -> bool:
     if command in SESSION_APPROVED_COMMANDS:
         return True
 
+    discard_pending_input()
     policy = load_policy()
     allow_session = bool(policy.get("approval", {}).get("allow_session_approval", True))
     print()
@@ -44,7 +46,7 @@ def _confirm_command(command: str, reason: str | None = None) -> bool:
         prompt = "Run it? [y]es / [n]o / approve for [s]ession: "
     else:
         prompt = "Run it? [y/N] "
-    answer = input(prompt).strip().lower()
+    answer = read_prompt(prompt).strip().lower()
     if allow_session and answer in {"s", "session"}:
         SESSION_APPROVED_COMMANDS.add(command)
         return True
@@ -96,7 +98,7 @@ def main():
 
     while True:
         try:
-            user_input = input(">> ")
+            user_input = read_prompt(">> ")
 
             if user_input.lower() in ["exit", "quit"]:
                 app_logger.info("User requested application exit")
@@ -118,10 +120,12 @@ def main():
                 logger.log_ai_interaction(user_input, {"status": "agent_handled"}, True)
                 print(f"{Colors.GREEN}assistant>{Colors.END}")
                 print(response)
+                discard_pending_input()
             except Exception as e:
                 error_msg = f"Unexpected error handling request: {e}"
                 app_logger.error(error_msg, exc_info=True)
                 print(f"Error: {error_msg}")
+                discard_pending_input()
 
         except KeyboardInterrupt:
             app_logger.info("Application interrupted by user")

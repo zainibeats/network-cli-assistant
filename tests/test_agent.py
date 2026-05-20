@@ -230,6 +230,44 @@ def test_handle_agent_message_does_not_fall_back_to_chat_for_parser_error(monkey
     assert "Could not understand command" in response
 
 
+def test_pending_clarification_can_be_cancelled(monkeypatch, tmp_path):
+    monkeypatch.setattr(agent, "append_chat_turn", lambda *_args, **_kwargs: tmp_path)
+    agent._PENDING_REQUEST = {
+        "request": "investigate my network",
+        "question": "Which target should I inspect?",
+        "created_at": agent.time.monotonic(),
+    }
+
+    response = handle_agent_message("cancel")
+
+    assert "cleared" in response
+    assert agent._PENDING_REQUEST is None
+
+
+def test_expired_pending_clarification_does_not_capture_next_message(monkeypatch, tmp_path):
+    monkeypatch.setattr(agent, "append_chat_turn", lambda *_args, **_kwargs: tmp_path)
+    monkeypatch.setattr(
+        agent,
+        "execute_agent_plan",
+        lambda plan, **_kwargs: {
+            "success": True,
+            "agent": True,
+            "target": plan["target"],
+            "output": f"ran {plan['steps'][0]['function']}",
+        },
+    )
+    agent._PENDING_REQUEST = {
+        "request": "investigate my network",
+        "question": "Which target should I inspect?",
+        "created_at": agent.time.monotonic() - agent.PENDING_CLARIFICATION_TTL_SECONDS - 1,
+    }
+
+    response = handle_agent_message("ping 192.168.1.1")
+
+    assert "ran ping" in response
+    assert agent._PENDING_REQUEST is None
+
+
 def test_build_shell_agent_plan_uses_model_commands(monkeypatch):
     monkeypatch.setattr(
         agent_planner,
