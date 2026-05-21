@@ -8,7 +8,7 @@ import subprocess
 from .policy import ApprovalMode, classify_shell_command
 from .policy import validate_safe_shell_command
 from .process_runner import run_process
-from .terminal_io import restore_terminal_state, save_terminal_state
+from .pty_runner import run_interactive_process
 
 
 def run_bash(
@@ -25,16 +25,11 @@ def run_bash(
 
     try:
         if interactive:
-            save_terminal_state()
-            try:
-                completed = subprocess.run(
-                    ["bash", "-lc", command],
-                    check=False,
-                    timeout=timeout,
-                    env=_safe_env(),
-                )
-            finally:
-                restore_terminal_state()
+            completed = run_interactive_process(
+                ["bash", "-lc", command],
+                timeout=timeout,
+                env=_safe_env(),
+            )
         else:
             completed = run_process(
                 ["bash", "-lc", command],
