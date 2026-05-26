@@ -263,7 +263,7 @@ def build_bash_request_plan(user_input: str) -> dict | None:
             return _agent_plan(
                 "safe",
                 "local-machine",
-                [step("run_bash", {"command": command}, "Run approved read-only bash command from user request")],
+                [step("run_bash", {"command": command}, "Run local bash command from user request")],
             )
     return None
 
@@ -279,7 +279,7 @@ def should_try_shell_planner(user_input: str, command: dict | None) -> bool:
 
 
 def as_agent_plan(command: dict) -> dict:
-    """Route approved read-only parsed commands through the agent executor."""
+    """Route parsed commands through the agent executor."""
     if command.get("status") == "agent_plan":
         return command
 
@@ -292,7 +292,7 @@ def as_agent_plan(command: dict) -> dict:
                 step(
                     function_name,
                     command.get("args", {}),
-                    "Run approved read-only command from parsed user request",
+                    "Run command from parsed user request",
                 )
             ],
         )

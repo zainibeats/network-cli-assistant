@@ -95,8 +95,8 @@ search online for the current traefik docker compose labels
 
 ## Safety Model
 
-- Clearly read-only diagnostics can run without prompting when they pass the shell policy.
-- Risky commands require approval, including `sudo`, package managers, Docker mutations, service changes, file writes, shell chains, redirection, inline scripts, and `web_search`.
+- Low-risk local diagnostics can run without prompting when they pass the shell policy.
+- Admin or higher-risk commands require approval, including `sudo`, package managers, Docker mutations, service changes, file writes, shell chains, redirection, inline scripts, and `web_search`.
 - SSH and SCP are blocked by default.
 - Vulnerability and port scans are limited to private/local targets unless the user explicitly confirms an external/public target.
 - Search results are used only inside the current agent run.

@@ -168,7 +168,7 @@ def _chat_response(user_input: str) -> str:
         "Use the recent chat memory for continuity when relevant. "
         "Use user-editable runtime notes when relevant. "
         "Do not claim you executed tools in chat mode. "
-        "Recommend state-changing admin actions instead of performing them.\n\n"
+        "When the user asks for local admin work, plan to run the needed command and rely on command approval.\n\n"
         f"Recent chat memory:\n{memory or '(none)'}\n\n"
         f"User-editable runtime context:\n{runtime_memory or '(none)'}"
     )
@@ -176,6 +176,6 @@ def _chat_response(user_input: str) -> str:
         return chat_with_provider(prompt, user_input)
     except Exception:
         return (
-            "I can help with safe homelab diagnostics, approved network tools, and read-only bash. "
-            "Ask me to investigate a host or run `bash <read-only command>`."
+            "I can help with homelab diagnostics, approved network tools, and local bash commands. "
+            "Ask me to investigate a host or run `bash <command>`."
         )

@@ -156,7 +156,7 @@ def recommend_next_steps(results: Iterable[dict]) -> list[str]:
                     "Review exposed services and decide whether firewall or service hardening is needed."
                 )
     if not recommendations:
-        recommendations.append("No admin changes recommended from these read-only checks.")
+        recommendations.append("No additional admin changes recommended from these checks.")
     return recommendations
 
 
@@ -179,7 +179,7 @@ def _execute_agent_steps(
                 {
                     "step": plan_step,
                     "success": False,
-                    "error": f"Function is not allowed in safe mode: {function_name}",
+                    "error": f"Function is not available to the agent executor: {function_name}",
                 }
             )
             continue

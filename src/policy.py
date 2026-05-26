@@ -12,7 +12,7 @@ from .runtime_context import ensure_directory, get_runtime_context_dir, set_priv
 
 DEFAULT_POLICY: dict[str, Any] = {
     "version": 1,
-    "read_only_shell_auto_approve": True,
+    "low_risk_shell_auto_approve": True,
     "approval": {
         "allow_session_approval": True,
         "allow_policy_edits_from_prompt": False,
@@ -206,12 +206,12 @@ def evaluate_command_policy(command: str, context_dir: Path | None = None) -> Po
 
 
 def validate_safe_shell_command(command: str) -> tuple[bool, str | None]:
-    """Allow read-only diagnostics and block shell composition or mutations."""
+    """Allow commands that can run without prompting; route the rest to approval."""
     if not command or not command.strip():
         return False, "Command cannot be empty"
 
     if any(token in command for token in BLOCKED_TOKENS) or "|" in command:
-        return False, "Shell composition and redirection are blocked in safe mode"
+        return False, "Shell composition and redirection require approval"
 
     try:
         parts = shlex.split(command)
@@ -223,19 +223,19 @@ def validate_safe_shell_command(command: str) -> tuple[bool, str | None]:
 
     executable = _base_command(parts[0])
     if "/" in parts[0] or executable in SAFE_MODE_BLOCKED_COMMANDS:
-        return False, f"Command is not allowed in safe mode: {executable}"
+        return False, f"{executable} requires approval"
 
     if executable == "systemctl" and _has_mutating_systemctl_action(parts[1:]):
-        return False, "State-changing systemctl actions require confirmation and are not allowed in safe mode"
+        return False, "State-changing systemctl actions require approval"
 
     if executable == "systemctl" and not _has_read_only_systemctl_action(parts[1:]):
-        return False, "Systemctl action is not clearly read-only in safe mode"
+        return False, "Systemctl action requires approval"
 
     if executable == "docker" and _has_mutating_docker_action(parts[1:]):
-        return False, "State-changing docker actions require confirmation and are not allowed in safe mode"
+        return False, "State-changing docker actions require approval"
 
     if _looks_like_inline_script(parts):
-        return False, "Inline scripts require confirmation and are not allowed in safe mode"
+        return False, "Inline scripts require approval"
 
     return True, None
 
@@ -261,11 +261,11 @@ def command_requires_approval(command: str) -> tuple[bool, str | None]:
         if _has_mutating_systemctl_action(parts[1:]):
             return True, "state-changing systemctl action"
         if not _has_read_only_systemctl_action(parts[1:]):
-            return True, "systemctl action is not clearly read-only"
+            return True, "systemctl action requires approval"
     if executable == "docker" and _has_mutating_docker_action(parts[1:]):
         return True, "state-changing docker action"
     if executable in SAFE_MODE_BLOCKED_COMMANDS:
-        return True, f"{executable} is not read-only"
+        return True, f"{executable} requires approval"
     if any(token in command for token in BLOCKED_TOKENS) or "|" in command:
         return True, "shell composition or redirection"
     if _looks_like_inline_script(parts):

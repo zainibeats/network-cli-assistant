@@ -4,7 +4,7 @@ from src.policy import evaluate_command_policy, load_policy, policy_path
 def test_load_policy_creates_default_policy(tmp_path):
     policy = load_policy(tmp_path)
 
-    assert policy["read_only_shell_auto_approve"] is True
+    assert policy["low_risk_shell_auto_approve"] is True
     assert "ssh" in policy["blocked_commands"]
     assert policy_path(tmp_path).exists()
 

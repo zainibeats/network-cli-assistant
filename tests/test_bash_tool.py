@@ -25,7 +25,7 @@ def test_validate_bash_command_blocks_unlisted_command():
     allowed, reason = validate_bash_command("rm file")
 
     assert allowed is False
-    assert "not allowed" in reason
+    assert "requires approval" in reason
 
 
 def test_validate_bash_command_allows_non_catalog_read_only_command():

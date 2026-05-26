@@ -30,7 +30,7 @@ def parse_args():
 
 
 def _confirm_command(command: str, reason: str | None = None) -> bool:
-    """Ask the user before running a command that is not clearly read-only."""
+    """Ask the user before running a command that requires approval."""
     if command in SESSION_APPROVED_COMMANDS:
         return True
 
