@@ -14,6 +14,7 @@ from src.formatting.colors import Colors
 from src.knowledgebase import ensure_knowledgebase
 from src.logging_config import initialize_logging
 from src.policy import load_policy
+from src.slash_commands import handle_slash_command, is_slash_command
 from src.terminal_io import discard_pending_input, read_prompt
 
 SESSION_APPROVED_COMMANDS: set[str] = set()
@@ -114,6 +115,18 @@ def main():
                 break
 
             if not user_input:
+                continue
+
+            if is_slash_command(user_input):
+                result = handle_slash_command(user_input, approval_mode=approval_mode)
+                if result.approval_mode:
+                    approval_mode = result.approval_mode
+                if result.clear_session_approvals:
+                    SESSION_APPROVED_COMMANDS.clear()
+                print(result.output)
+                if result.action == "exit":
+                    app_logger.info("User requested application exit")
+                    break
                 continue
 
             # Log user input (without sensitive data)

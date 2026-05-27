@@ -14,7 +14,6 @@ from typing import Optional, Tuple
 
 from .command_catalog import get_function, has_function
 from .command_result import parser_error
-from .deterministic_parser import parse_deterministic
 from .llm_providers import parse_with_provider, selected_provider
 from .prompt_builder import build_command_parser_prompt
 
@@ -52,14 +51,6 @@ def parse_command(user_input: str) -> dict:
     if not user_input or not user_input.strip():
         logger.warning("Empty input received")
         return parser_error("empty_input", "Please provide a command")
-
-    deterministic_result = parse_deterministic(user_input)
-    if deterministic_result:
-        logger.info(
-            "Command parsed deterministically",
-            extra={"status": deterministic_result.get("status")},
-        )
-        return deterministic_result
 
     try:
         prompt = get_enhanced_prompt()

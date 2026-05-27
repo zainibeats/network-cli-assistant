@@ -20,21 +20,11 @@ from .dispatcher import parse_command
 from .findings import record_finding
 from .formatting.output import format_output
 from .knowledgebase import update_inventory
-from .llm_providers import chat_with_provider
-from .memory import append_chat_turn, load_chat_memory, load_runtime_memory
+from .memory import append_chat_turn
 from .policy import ApprovalMode
 
 ApprovalCallback = Callable[[str, str | None], bool]
 
-CHAT_PATTERNS = (
-    "hello",
-    "hi",
-    "hey",
-    "thanks",
-    "thank you",
-    "what can you do",
-    "help",
-)
 _PENDING_REQUEST: dict | None = None
 PENDING_CLARIFICATION_TTL_SECONDS = 300
 CLARIFICATION_CANCEL_WORDS = {"cancel", "nevermind", "never mind", "ignore that"}
@@ -65,11 +55,6 @@ def handle_agent_message(
                 ]
             )
             _PENDING_REQUEST = None
-
-    if _is_chat(user_input):
-        response = _chat_response(user_input)
-        append_chat_turn(user_input, response)
-        return response
 
     result = build_bash_request_plan(user_input)
     if result is None:
@@ -108,6 +93,12 @@ def _set_pending_request(request: str, question: str | None) -> None:
         "question": question or "Please clarify the request.",
         "created_at": time.monotonic(),
     }
+
+
+def clear_pending_request() -> None:
+    """Clear any pending clarification tracked by the agent facade."""
+    global _PENDING_REQUEST
+    _PENDING_REQUEST = None
 
 
 def _pending_request_expired(pending_request: dict) -> bool:
@@ -171,28 +162,3 @@ def _persist_observation(command: dict, result: dict) -> None:
             "Could not persist assistant observation", exc_info=True
         )
 
-
-def _is_chat(user_input: str) -> bool:
-    text = " ".join(user_input.lower().split())
-    return text in CHAT_PATTERNS
-
-
-def _chat_response(user_input: str) -> str:
-    memory = load_chat_memory()
-    runtime_memory = load_runtime_memory()
-    prompt = (
-        "You are a concise homelab terminal assistant. "
-        "Use the recent chat memory for continuity when relevant. "
-        "Use user-editable runtime notes when relevant. "
-        "Do not claim you executed tools in chat mode. "
-        "Recommend state-changing admin actions instead of performing them.\n\n"
-        f"Recent chat memory:\n{memory or '(none)'}\n\n"
-        f"User-editable runtime context:\n{runtime_memory or '(none)'}"
-    )
-    try:
-        return chat_with_provider(prompt, user_input)
-    except Exception:
-        return (
-            "I can help with safe homelab diagnostics, approved network tools, and read-only bash. "
-            "Ask me to investigate a host or run `bash <read-only command>`."
-        )

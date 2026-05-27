@@ -73,14 +73,20 @@ def test_validate_parsed_command_checks_required_args():
     assert error == "Missing required parameter: host"
 
 
-def test_parse_command_returns_structured_clarification_without_llm(monkeypatch):
+def test_parse_command_sends_broad_scan_request_to_llm(monkeypatch):
+    calls = []
     monkeypatch.setattr(
         dispatcher,
         "parse_with_provider",
-        lambda _prompt: (_ for _ in ()).throw(AssertionError("LLM should not be called")),
+        lambda prompt: calls.append(prompt)
+        or {
+            "function": "run_nmap_scan",
+            "args": {"target": "192.168.1.0/24"},
+        },
     )
 
     result = dispatcher.parse_command("scan my network")
 
-    assert result["status"] == "needs_clarification"
-    assert result["missing"] == ["target_or_network"]
+    assert calls
+    assert result["status"] == "ready"
+    assert result["function"] == "run_nmap_scan"

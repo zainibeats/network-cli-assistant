@@ -3,79 +3,13 @@
 from __future__ import annotations
 
 import ipaddress
-import re
 import shlex
 
 from .agent_prompts import shell_planner_prompt
 from .command_result import needs_clarification
-from .deterministic_parser import COMMON_DOMAINS
 from .llm_providers import parse_json_with_provider
 from .memory import load_chat_memory, load_runtime_memory
-from .validation.network import validate_network_target
 
-AGENT_TRIGGERS = (
-    "audit",
-    "check",
-    "diagnose",
-    "investigate",
-    "probe",
-    "scan",
-    "security check",
-    "troubleshoot",
-    "triage",
-    "check health",
-    "look into",
-    "what is wrong",
-    "why is",
-)
-LOCAL_NETWORK_TERMS = (
-    "cidr",
-    "default gateway",
-    "ip address",
-    "network am i on",
-    "network is the machine on",
-    "network machine is on",
-    "network is this",
-    "network the machine is on",
-    "network this machine is on",
-    "subnet",
-)
-LOG_REVIEW_TERMS = (
-    "check logs",
-    "errors in the logs",
-    "look through logs",
-    "parse logs",
-    "parse through logs",
-    "read logs",
-    "review logs",
-    "scan logs",
-)
-TARGET_STOPWORDS = frozenset(
-    {
-        "a",
-        "an",
-        "check",
-        "diagnose",
-        "for",
-        "health",
-        "into",
-        "investigate",
-        "is",
-        "look",
-        "my",
-        "network",
-        "of",
-        "on",
-        "server",
-        "the",
-        "to",
-        "triage",
-        "troubleshoot",
-        "what",
-        "why",
-        "wrong",
-    }
-)
 READ_ONLY_FUNCTIONS = frozenset(
     {
         "dns_lookup",
@@ -87,104 +21,13 @@ READ_ONLY_FUNCTIONS = frozenset(
     }
 )
 AGENT_FUNCTIONS = READ_ONLY_FUNCTIONS | {"run_bash", "web_search"}
-TARGET_PATTERN = r"([a-zA-Z0-9][a-zA-Z0-9.-]*(?:/\d{1,2})?)"
-LOCALHOST_TERMS = ("localhost", "local host", "this host", "this machine", "local machine")
-SECURITY_TERMS = ("vulnerab", "security", "exposed", "open port", "listening", "attack surface")
-NON_TARGET_WORDS = TARGET_STOPWORDS | {
-    "attack",
-    "exposed",
-    "ports",
-    "security",
-    "services",
-    "vulnerabilities",
-    "vulnerability",
-}
 BASH_PREFIXES = ("bash ", "run bash ", "shell ")
-SHELL_PLANNER_TERMS = (
-    "broken",
-    "container",
-    "cpu",
-    "disk",
-    "docker",
-    "down",
-    "firewall",
-    "journal",
-    "log",
-    "memory",
-    "package",
-    "packages",
-    "install",
-    "update",
-    "upgrade",
-    "remove",
-    "not working",
-    "nmap",
-    "open port",
-    "port",
-    "service",
-    "systemd",
-    "why",
-)
 SCAN_COMMANDS = {"masscan", "nmap", "nikto"}
-WEB_RESEARCH_TERMS = (
-    "documentation",
-    "docs",
-    "latest",
-    "most recent",
-    "online",
-    "search",
-    "web",
-)
 
 
 def build_agent_plan(user_input: str) -> dict | None:
-    """Build a bounded safe-mode diagnostic plan, or return None if not applicable."""
-    text = " ".join(user_input.strip().lower().split())
-    if not text:
-        return None
-
-    if _is_local_network_request(text):
-        return _agent_plan("safe", "local-machine", _local_network_steps())
-
-    if _is_log_review_request(text):
-        return _agent_plan("safe", "local-logs", _local_log_steps())
-
-    if _is_web_research_request(text):
-        return _agent_plan(
-            "power",
-            "web",
-            [step("web_search", {"query": user_input.strip(), "max_results": 5}, "Research current online information")],
-        )
-
-    if not any(trigger in text for trigger in AGENT_TRIGGERS):
-        return None
-
-    if _is_localhost_security_request(text):
-        return _agent_plan("safe", "localhost", _security_steps("localhost", "hostname"))
-
-    target = _extract_target(text)
-    if not target:
-        return needs_clarification(
-            "Which host or subnet should I investigate? For example: 192.168.1.10 or 192.168.1.0/24.",
-            ["target_or_network"],
-        )
-
-    is_valid, error, target_type = validate_network_target(target)
-    if not is_valid:
-        return needs_clarification(error or "Please provide a valid host, IP, or CIDR target.", ["target"])
-
-    if target_type == "cidr":
-        network = ipaddress.ip_network(target, strict=False)
-        if network.num_addresses > 256:
-            return needs_clarification(
-                "Safe mode can investigate up to a /24 at a time. Which smaller subnet should I use?",
-                ["narrower_network"],
-            )
-        steps = _security_steps(target, target_type) if _is_security_request(text) else _network_steps(target)
-    else:
-        steps = _security_steps(target, target_type) if _is_security_request(text) else _host_steps(target, target_type)
-
-    return _agent_plan("safe", target, steps)
+    """Do not build keyword-triggered plans from free-form user input."""
+    return None
 
 
 def build_shell_agent_plan(user_input: str) -> dict | None:
@@ -270,11 +113,10 @@ def build_bash_request_plan(user_input: str) -> dict | None:
 
 def should_try_shell_planner(user_input: str, command: dict | None) -> bool:
     """Return whether the local model should try to plan shell diagnostics."""
-    text = " ".join(user_input.lower().split())
     if command is None:
-        return any(term in text for term in SHELL_PLANNER_TERMS)
+        return True
     if command.get("status") == "needs_clarification":
-        return any(term in text for term in SHELL_PLANNER_TERMS)
+        return True
     return False
 
 
@@ -311,26 +153,6 @@ def as_agent_plan(command: dict) -> dict:
         )
 
     return command
-
-
-def _is_web_research_request(text: str) -> bool:
-    if not any(term in text for term in WEB_RESEARCH_TERMS):
-        return False
-    return any(
-        term in text
-        for term in (
-            "compose",
-            "docker",
-            "install",
-            "setup",
-            "set up",
-            "configure",
-            "documentation",
-            "docs",
-            "search",
-            "online",
-        )
-    )
 
 
 def external_scan_reason(command: str, user_input: str) -> str | None:
@@ -375,74 +197,6 @@ def _target_from_args(args: dict) -> str | None:
     return args.get("host") or args.get("target") or args.get("network")
 
 
-def _host_steps(target: str, target_type: str | None) -> list[dict]:
-    steps = []
-    if target_type == "hostname":
-        steps.append(step("dns_lookup", {"host": target}, "Resolve the hostname"))
-    steps.extend(
-        [
-            step("ping", {"host": target}, "Check basic reachability"),
-            step("traceroute", {"host": target}, "Inspect the path to the host"),
-            step("run_nmap_scan", {"target": target, "top_ports": 10}, "Check common exposed services"),
-        ]
-    )
-    return steps
-
-
-def _network_steps(target: str) -> list[dict]:
-    return [
-        step("discover_hosts", {"network": target, "scan_method": "arp"}, "Find active hosts"),
-        step("run_nmap_scan", {"target": target, "top_ports": 10}, "Check common exposed services"),
-    ]
-
-
-def _security_steps(target: str, target_type: str | None) -> list[dict]:
-    if target_type == "cidr":
-        return [
-            step("discover_hosts", {"network": target, "scan_method": "arp"}, "Find active hosts"),
-            step("run_nmap_scan", {"target": target, "top_ports": 100}, "Scan common ports for exposed services"),
-        ]
-
-    steps = []
-    if target == "localhost":
-        steps.extend(_local_context_steps())
-        steps.append(step("run_nmap_scan", {"target": target, "top_ports": 100}, "Scan common ports for exposed services"))
-        return steps
-    if target_type == "hostname":
-        steps.append(step("dns_lookup", {"host": target}, "Resolve the hostname"))
-
-    steps.extend(
-        [
-            step("ping", {"host": target}, "Check basic reachability"),
-            step("traceroute", {"host": target}, "Inspect the path to the host"),
-            step("run_nmap_scan", {"target": target, "top_ports": 100}, "Scan common ports for exposed services"),
-        ]
-    )
-    return steps
-
-
-def _local_context_steps() -> list[dict]:
-    return [
-        step("run_bash", {"command": "ss -tulpen"}, "List local TCP and UDP listening sockets with process context"),
-        step("run_bash", {"command": "ip addr show"}, "Review local interface exposure"),
-    ]
-
-
-def _local_network_steps() -> list[dict]:
-    return [
-        step("run_bash", {"command": "ip -brief -4 addr show scope global"}, "Find local IPv4 addresses and CIDR prefixes"),
-        step("run_bash", {"command": "ip route show"}, "Find default gateway and connected routes"),
-        step("run_bash", {"command": "hostname -I"}, "List host IP addresses"),
-    ]
-
-
-def _local_log_steps() -> list[dict]:
-    return [
-        step("run_bash", {"command": "journalctl -n 200 -p warning"}, "Review recent warning and error logs"),
-        step("run_bash", {"command": "systemctl --failed"}, "Check failed systemd units"),
-    ]
-
-
 def _is_private_or_local_target(target: str) -> bool:
     if target in {"localhost", "127.0.0.1", "::1"}:
         return True
@@ -454,53 +208,3 @@ def _is_private_or_local_target(target: str) -> bool:
         return address.is_private or address.is_loopback or address.is_link_local
     except ValueError:
         return target.endswith(".local") or "." not in target
-
-
-def _is_local_network_request(text: str) -> bool:
-    asks_local_host = any(term in text for term in LOCALHOST_TERMS) or "machine" in text
-    asks_network = any(term in text for term in LOCAL_NETWORK_TERMS)
-    return asks_network and (asks_local_host or "am i on" in text or "this" in text)
-
-
-def _is_log_review_request(text: str) -> bool:
-    return any(term in text for term in LOG_REVIEW_TERMS)
-
-
-def _is_localhost_security_request(text: str) -> bool:
-    return any(term in text for term in LOCALHOST_TERMS) and any(term in text for term in SECURITY_TERMS)
-
-
-def _is_security_request(text: str) -> bool:
-    return any(term in text for term in SECURITY_TERMS)
-
-
-def _extract_target(text: str) -> str | None:
-    for pattern in (
-        rf"\b(?:host|server|device|target|subnet|network) {TARGET_PATTERN}\b",
-        rf"\b(?:on|for|to|into) {TARGET_PATTERN}\b",
-    ):
-        match = re.search(pattern, text)
-        if match:
-            target = _normalize_target(match.group(1))
-            if _is_named_target(target):
-                return target
-
-    for token in re.findall(TARGET_PATTERN, text):
-        target = _normalize_target(token)
-        if target not in NON_TARGET_WORDS and _is_valid_fallback_target(target):
-            return target
-    return None
-
-
-def _normalize_target(target: str) -> str:
-    return COMMON_DOMAINS.get(target.strip(".").lower(), target.strip())
-
-
-def _is_valid_fallback_target(target: str) -> bool:
-    if target in COMMON_DOMAINS.values() or "." in target or "/" in target:
-        return validate_network_target(target)[0]
-    return False
-
-
-def _is_named_target(target: str) -> bool:
-    return target not in NON_TARGET_WORDS and validate_network_target(target)[0]
