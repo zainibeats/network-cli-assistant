@@ -479,9 +479,9 @@ def test_execute_agent_plan_asks_approval_for_ssh(monkeypatch):
     assert calls == [
         {
             "command": "ssh fileserver df -h",
-            "timeout": 30,
+            "timeout": None,
             "require_safe": False,
-            "interactive": False,
+            "interactive": True,
         }
     ]
 

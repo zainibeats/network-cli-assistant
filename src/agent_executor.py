@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import shlex
 from typing import Callable, Iterable
 
 from . import core_functions
@@ -236,7 +237,7 @@ def _run_bash_step(
         if not decision.require_safe:
             return run_bash(
                 command=command,
-                timeout=timeout,
+                timeout=_interactive_timeout(command, timeout),
                 require_safe=False,
                 interactive=_needs_interactive_terminal(command),
             )
@@ -273,7 +274,7 @@ def _run_bash_step(
     )
     return run_bash(
         command=command,
-        timeout=timeout,
+        timeout=_interactive_timeout(command, timeout),
         require_safe=False,
         interactive=interactive,
     )
@@ -314,7 +315,33 @@ def _run_web_search_step(
 
 def _needs_interactive_terminal(command: str) -> bool:
     """Return whether an approved command should inherit terminal stdio."""
-    return command.strip().startswith("sudo ")
+    argv = _shell_words(command)
+    if not argv:
+        return False
+    if argv[0] == "sudo" and len(argv) > 1:
+        return True
+    return argv[0] == "ssh"
+
+
+def _interactive_timeout(command: str, timeout: int) -> int | None:
+    """Return the timeout to use for approved interactive shell commands."""
+    return None if _is_ssh_command(command) else timeout
+
+
+def _is_ssh_command(command: str) -> bool:
+    argv = _shell_words(command)
+    if not argv:
+        return False
+    if argv[0] == "ssh":
+        return True
+    return len(argv) > 1 and argv[0] == "sudo" and argv[1] == "ssh"
+
+
+def _shell_words(command: str) -> list[str]:
+    try:
+        return shlex.split(command)
+    except ValueError:
+        return command.strip().split()
 
 
 def _review_observations(user_input: str, plan: dict, results: list[dict]) -> dict | None:

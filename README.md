@@ -106,6 +106,7 @@ search online for the current traefik docker compose labels
 - Clearly read-only diagnostics can run without prompting when they pass the shell policy.
 - Risky commands require approval, including `sudo`, SSH/SCP, package managers, Docker mutations, service changes, file writes, shell chains, redirection, inline scripts, and `web_search`.
 - Approved interactive shell commands run behind a pseudo-terminal so child terminal state changes do not leak into the assistant prompt.
+- Approved SSH commands open as interactive sessions and stay attached until the remote shell exits.
 - In `safe` mode, risky shell commands are denied instead of prompting.
 - In `power` mode, risky shell commands and web search run without prompting. Use it only when you want YOLO-style local execution.
 - Vulnerability and port scans are limited to private/local targets unless the user explicitly confirms an external/public target.

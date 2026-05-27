@@ -19,7 +19,7 @@ TERMINATE_GRACE_SECONDS = 0.5
 def run_interactive_process(
     args: Sequence[str],
     *,
-    timeout: int,
+    timeout: int | None,
     env: dict[str, str] | None = None,
 ) -> subprocess.CompletedProcess[str]:
     """
@@ -38,7 +38,7 @@ def run_interactive_process(
             os._exit(127)
 
     output = bytearray()
-    deadline = time.monotonic() + timeout
+    deadline = None if timeout is None else time.monotonic() + timeout
     timed_out = False
     stdin_fd = _fileno_if_tty(sys.stdin)
     stdout_fd = _fileno_if_available(sys.stdout)
@@ -58,8 +58,8 @@ def run_interactive_process(
                     stderr="",
                 )
 
-            remaining = deadline - time.monotonic()
-            if remaining <= 0:
+            remaining = None if deadline is None else deadline - time.monotonic()
+            if remaining is not None and remaining <= 0:
                 timed_out = True
                 _terminate_child(pid)
                 _drain_master(master_fd, output, stdout_fd)
@@ -73,7 +73,8 @@ def run_interactive_process(
             read_fds = [master_fd]
             if stdin_fd is not None:
                 read_fds.append(stdin_fd)
-            readable, _, _ = select.select(read_fds, [], [], min(0.1, remaining))
+            wait_time = 0.1 if remaining is None else min(0.1, remaining)
+            readable, _, _ = select.select(read_fds, [], [], wait_time)
             if master_fd in readable:
                 _copy_from_master(master_fd, output, stdout_fd)
             if stdin_fd is not None and stdin_fd in readable:

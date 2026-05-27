@@ -13,7 +13,7 @@ from .pty_runner import run_interactive_process
 
 def run_bash(
     command: str,
-    timeout: int = 30,
+    timeout: int | None = 30,
     require_safe: bool = True,
     interactive: bool = False,
 ) -> dict:

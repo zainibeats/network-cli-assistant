@@ -26,3 +26,13 @@ def test_run_interactive_process_times_out():
         )
 
     assert exc_info.value.timeout == 1
+
+
+def test_run_interactive_process_allows_no_timeout():
+    result = run_interactive_process(
+        [sys.executable, "-c", "print('no timeout')"],
+        timeout=None,
+    )
+
+    assert result.returncode == 0
+    assert "no timeout" in result.stdout
